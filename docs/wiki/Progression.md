@@ -58,6 +58,28 @@ Useful node features:
 - extra requirements
 - reward bundles for abilities, passives, items, and recipes
 
+## Composite Requirements
+
+Progression requirements can now be composed instead of forcing every branch gate into one custom predicate.
+
+```java
+UpgradeNodeDefinition.builder(advanceNodeId)
+        .track(nikoUltimateTrackId)
+        .requirement(UpgradeRequirements.any(
+                UpgradeRequirements.trackCompleted(offensiveTrackId),
+                UpgradeRequirements.trackCompleted(defensiveTrackId)
+        ))
+        .requirement(UpgradeRequirements.anyNodeUnlocked(strikerNodeId, waterNodeId))
+        .build();
+```
+
+Useful helpers:
+
+- `UpgradeRequirements.all(...)`
+- `UpgradeRequirements.any(...)`
+- `UpgradeRequirements.trackCompleted(...)`
+- `UpgradeRequirements.anyNodeUnlocked(...)`
+
 ## Unlocking and Revoking
 
 Unlock:

@@ -8,6 +8,8 @@ Useful event surfaces include:
 
 - `XLibAbilityActivationEvent`
 - `XLibModeEvent.Ended` with explicit end reasons
+- `XLibOutgoingDamageEvent`
+- `XLibIncomingDamageEvent`
 - `XLibCombatHitEvent`
 - `XLibCombatMarkEvent`
 - `XLibGrantedItemEvent.Reclaimed`
@@ -17,6 +19,36 @@ Useful event surfaces include:
 - `XLibUpgradeRewardProjectionEvent.Cleared`
 
 These exist so integrations do not need to poll attachments for recipe access changes, combat-mark lifecycles, dodge/parry/block hit resolution, granted-item cleanup, or projected progression rewards.
+
+## Mutable Damage Events
+
+XLib now exposes public mutable player damage events for addon-side damage buffs, reductions, and counters:
+
+- `XLibOutgoingDamageEvent`
+- `XLibIncomingDamageEvent`
+
+Example:
+
+```java
+NeoForge.EVENT_BUS.addListener((XLibOutgoingDamageEvent event) -> {
+    if (event.player().isSprinting()) {
+        event.setAmount(event.amount() * 1.15F);
+    }
+});
+```
+
+Incoming events fire for player defenders. Outgoing events fire for player attackers. Both can mutate the final amount before XLib's player-side hurt/resource hooks finish.
+
+## Reaction State
+
+Recent-hit / parry-window style kits can now use the combat-reaction attachment instead of hand-rolling their own timer memory.
+
+Useful APIs:
+
+- `CombatReactionApi.recentlyHurtWithin(player, ticks)`
+- `CombatReactionApi.lastAttacker(player)`
+- `CombatReactionApi.lastDamage(player)`
+- `AbilityRequirements.recentlyHurtWithin(ticks)`
 
 ## Admin and Debug Commands
 

@@ -13,6 +13,7 @@ class RegistryApiTest {
     private static final ResourceLocation GRANTED_ITEM_ID = id("granted_item_unregister_test");
     private static final ResourceLocation RECIPE_ID = id("recipe_unregister_test");
     private static final ResourceLocation SOURCE_ID = id("source");
+    private static final ResourceLocation ALIAS_RESOURCE_ID = id("resource_alias_test");
 
     @Test
     void unregisterResourceRemovesDefinitionAndDefaultData() {
@@ -57,6 +58,20 @@ class RegistryApiTest {
         assertTrue(sanitized.passiveGrantSourcesFor(PASSIVE_ID).isEmpty());
         assertTrue(sanitized.grantedItemSourcesFor(GRANTED_ITEM_ID).isEmpty());
         assertTrue(sanitized.recipePermissionSourcesFor(RECIPE_ID).isEmpty());
+    }
+
+    @Test
+    void resourceBuilderAliasesMapToTheExistingDefinitionFields() {
+        AbilityResourceDefinition definition = AbilityResourceDefinition.builder(ALIAS_RESOURCE_ID)
+                .min(0)
+                .max(150)
+                .startingValue(25)
+                .decayPerTick(0.25D)
+                .build();
+
+        assertEquals(150, definition.maxAmount());
+        assertEquals(25, definition.startingAmount());
+        assertEquals(1, definition.behaviors().size());
     }
 
     private static ResourceLocation id(String path) {

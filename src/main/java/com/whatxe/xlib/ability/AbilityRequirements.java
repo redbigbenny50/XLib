@@ -2,6 +2,7 @@ package com.whatxe.xlib.ability;
 
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.combat.CombatMarkState;
+import com.whatxe.xlib.combat.CombatReactionApi;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -252,6 +253,13 @@ public final class AbilityRequirements {
                     CombatMarkState state = ModAttachments.getMarks(player).state(markId);
                     return state != null && state.value() >= minimumValue;
                 }
+        );
+    }
+
+    public static AbilityRequirement recentlyHurtWithin(int ticks) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_recently_hurt", ticks),
+                (player, data) -> player != null && CombatReactionApi.recentlyHurtWithin(player, ticks)
         );
     }
 

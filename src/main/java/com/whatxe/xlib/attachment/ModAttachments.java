@@ -6,6 +6,7 @@ import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityGrantApi;
 import com.whatxe.xlib.combat.CombatMarkApi;
 import com.whatxe.xlib.combat.CombatMarkData;
+import com.whatxe.xlib.combat.CombatReactionData;
 import com.whatxe.xlib.progression.UpgradeApi;
 import com.whatxe.xlib.progression.UpgradeProgressData;
 import io.netty.channel.embedded.EmbeddedChannel;
@@ -44,6 +45,10 @@ public final class ModAttachments {
                     .serialize(CombatMarkData.CODEC)
                     .build()
     );
+    public static final Supplier<AttachmentType<CombatReactionData>> LIVING_COMBAT_REACTION = ATTACHMENT_TYPES.register(
+            "living_combat_reaction",
+            () -> AttachmentType.builder(CombatReactionData::empty).build()
+    );
 
     private ModAttachments() {}
 
@@ -69,6 +74,14 @@ public final class ModAttachments {
 
     public static void setMarks(LivingEntity entity, CombatMarkData data) {
         entity.setData(LIVING_COMBAT_MARKS, CombatMarkApi.sanitize(data));
+    }
+
+    public static CombatReactionData getReaction(LivingEntity entity) {
+        return entity.getData(LIVING_COMBAT_REACTION);
+    }
+
+    public static void setReaction(LivingEntity entity, CombatReactionData data) {
+        entity.setData(LIVING_COMBAT_REACTION, data == null ? CombatReactionData.empty() : data);
     }
 
     private static boolean hasEmbeddedConnection(ServerPlayer player) {

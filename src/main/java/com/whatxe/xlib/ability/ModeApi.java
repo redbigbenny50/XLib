@@ -30,6 +30,22 @@ public final class ModeApi {
 
     public static void bootstrap() {}
 
+    public static ModeAbilityDefinition registerModeAbility(ModeAbilityDefinition definition) {
+        Objects.requireNonNull(definition, "definition");
+        if (!definition.ability().id().equals(definition.mode().abilityId())) {
+            throw new IllegalStateException("Mode ability and mode ids must match");
+        }
+        if (AbilityApi.findAbility(definition.id()).isPresent()) {
+            throw new IllegalStateException("Duplicate ability registration: " + definition.id());
+        }
+        if (findMode(definition.id()).isPresent()) {
+            throw new IllegalStateException("Duplicate mode registration: " + definition.id());
+        }
+        AbilityApi.registerAbility(definition.ability());
+        registerMode(definition.mode());
+        return definition;
+    }
+
     public static ModeDefinition registerMode(ModeDefinition mode) {
         XLibRegistryGuard.ensureMutable("modes");
         ModeDefinition previous = MODES.putIfAbsent(mode.abilityId(), mode);
@@ -42,6 +58,12 @@ public final class ModeApi {
     public static Optional<ModeDefinition> unregisterMode(ResourceLocation modeAbilityId) {
         XLibRegistryGuard.ensureMutable("modes");
         return Optional.ofNullable(MODES.remove(modeAbilityId));
+    }
+
+    public static boolean unregisterModeAbility(ResourceLocation modeAbilityId) {
+        boolean changed = AbilityApi.unregisterAbility(modeAbilityId).isPresent();
+        changed |= unregisterMode(modeAbilityId).isPresent();
+        return changed;
     }
 
     public static Optional<ModeDefinition> findMode(ResourceLocation modeAbilityId) {

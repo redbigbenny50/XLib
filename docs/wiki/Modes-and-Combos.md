@@ -34,6 +34,36 @@ If an ability should only activate while a mode is active:
 .activateRequirement(AbilityRequirements.modeActive(superSaiyanId))
 ```
 
+## Combined Mode + Toggle Registration
+
+If the mode and its toggle ability are really one feature, register them together:
+
+```java
+ModeApi.registerModeAbility(ModeAbilityDefinition.builder(flameKataId, AbilityIcon.ofTexture(iconId))
+        .cooldownTicks(40)
+        .durationTicks(120)
+        .cooldownPolicy(AbilityCooldownPolicy.ON_END)
+        .exclusiveWith(waterKataId)
+        .overlayAbility(0, ironBreakerId)
+        .cooldownTickRateMultiplier(1.5D)
+        .action((player, data) -> AbilityUseResult.success(data))
+        .build());
+```
+
+This removes the easy mistake where an addon author accidentally invents separate ids for the toggle ability and the mode state.
+
+## Mode Id Guardrail
+
+XLib mode ids are ability ids.
+
+That means:
+
+- `ModeDefinition.builder(flameKataId)` expects the same id as the toggle ability
+- `AbilityRequirements.modeActive(flameKataId)` also points at that same ability id
+- active-duration, upkeep, overlays, combo checks, and mode-end events all use that same id
+
+If you prefer not to manage that relationship manually, use `ModeAbilityDefinition` and `ModeApi.registerModeAbility(...)`.
+
 ## Stackable Modes
 
 `stackable()` makes the design intent explicit: this mode is meant to layer on top of other active modes instead of acting like a mutually exclusive stance by omission alone.

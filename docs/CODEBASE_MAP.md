@@ -51,6 +51,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - `player_ability_data` via `AbilityData`
   - `player_upgrade_progress` via `UpgradeProgressData`
   - `living_combat_marks` via `CombatMarkData`
+  - `living_combat_reaction` via `CombatReactionData`
   Also contains the embedded-connection sync workaround used for GameTests.
 
 ## Ability / Combat Core
@@ -83,6 +84,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - toggle mode settings
   - sound hooks
 
+- `src/main/java/com/whatxe/xlib/ability/AbilityActions.java`
+  Higher-level combat action helpers for common melee-kit behavior such as strike, dash-behind strike, launchers, and counter attacks, while still respecting XLib hit-resolution.
+
 - `src/main/java/com/whatxe/xlib/ability/AbilityRuntime.java`
   Server activation/tick/end pipeline for abilities and toggle modes.
 
@@ -93,7 +97,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   Base slot assignment, per-mode preset assignment, and resolved slot lookup after combo overrides, authored mode overlays, and active mode preset fallback.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityRequirements.java`
-  Built-in assign/use/render requirement helpers. Includes exact-resource and combat-mark requirements, and requirement labels resolve lazily so later-registered abilities, passives, and modes still display readable names in UI and failure feedback instead of raw ids.
+  Built-in assign/use/render requirement helpers. Includes exact-resource, combat-mark, and recent-hit reaction requirements, and requirement labels resolve lazily so later-registered abilities, passives, and modes still display readable names in UI and failure feedback instead of raw ids.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityCombatTracker.java`
   Recent ability-hit attribution helper for systems that need to know which ability caused a later kill. Also kicks off hit-confirm combo triggers when addon code records a landed ability hit.
@@ -118,10 +122,18 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 - `src/main/java/com/whatxe/xlib/api/event/XLibCombatHitEvent.java`
   Mutable hit-resolution event surface for addon-defined dodge/block/parry outcomes before damage is applied.
 
+- `src/main/java/com/whatxe/xlib/combat/CombatReactionData.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatReactionApi.java`
+  Runtime recent-hit / last-attacker / last-damage state for counter, parry, or revenge-window abilities.
+
+- `src/main/java/com/whatxe/xlib/api/event/XLibOutgoingDamageEvent.java`
+- `src/main/java/com/whatxe/xlib/api/event/XLibIncomingDamageEvent.java`
+  Public mutable player damage events for addon-side outgoing/incoming damage adjustment before XLib's player combat pipeline finalizes the amount.
+
 ## Resources
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityResourceDefinition.java`
-  Persistent combat-bar resource definition and behavior hooks.
+  Persistent combat-bar resource definition and behavior hooks, including authoring aliases like `min(0)`, `max(...)`, `startingValue(...)`, and `decayPerTick(...)`.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityResourceApi.java`
   Read/write helpers for player resource amounts, including exact fractional values.
@@ -147,7 +159,10 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - bundled rewards/blocks while active
 
 - `src/main/java/com/whatxe/xlib/ability/ModeApi.java`
-  Mode registry, active overlay resolution, bundled snapshot generation, ordered-cycle validation, cycle-history/reset helpers, upkeep application, aggregated cooldown multiplier lookup, and lifecycle event emission with specific end reasons.
+  Mode registry, combined mode+toggle registration, active overlay resolution, bundled snapshot generation, ordered-cycle validation, cycle-history/reset helpers, upkeep application, aggregated cooldown multiplier lookup, and lifecycle event emission with specific end reasons.
+
+- `src/main/java/com/whatxe/xlib/ability/ModeAbilityDefinition.java`
+  Wrapper builder for mode-toggle abilities where one id should define both the `AbilityDefinition` and the `ModeDefinition`.
 
 - `src/main/java/com/whatxe/xlib/ability/ComboChainDefinition.java`
   Trigger ability -> follow-up ability combo definition, including optional branch conditions that can swap to different follow-up abilities from the same trigger, plus trigger timing selection (`activation`, `hit confirm`, `end`).
@@ -293,7 +308,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 - `src/main/java/com/whatxe/xlib/progression/UpgradeRequirement.java`
 - `src/main/java/com/whatxe/xlib/progression/UpgradeRequirements.java`
-  Node requirement contract and built-in helpers.
+  Node requirement contract and built-in helpers, including `all(...)`, `any(...)`, `trackCompleted(...)`, and `anyNodeUnlocked(...)`.
 
 - `src/main/java/com/whatxe/xlib/progression/UpgradeRewardBundle.java`
   Ability/passive/item/recipe rewards projected into the existing grant systems.

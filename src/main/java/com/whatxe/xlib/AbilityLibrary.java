@@ -9,6 +9,7 @@ import com.whatxe.xlib.ability.PassiveApi;
 import com.whatxe.xlib.ability.RecipePermissionApi;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.combat.CombatMarkApi;
+import com.whatxe.xlib.combat.CombatReactionApi;
 import com.whatxe.xlib.command.AbilityGrantCommands;
 import com.whatxe.xlib.dev.XLibDevContent;
 import com.whatxe.xlib.network.ModPayloads;
@@ -28,6 +29,7 @@ public final class AbilityLibrary {
         ComboChainApi.bootstrap();
         ContextGrantApi.bootstrap();
         CombatMarkApi.bootstrap();
+        CombatReactionApi.bootstrap();
         PassiveApi.bootstrap();
         GrantedItemApi.bootstrap();
         ModeApi.bootstrap();
