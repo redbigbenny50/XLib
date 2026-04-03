@@ -27,6 +27,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 - `logs/`
   Local runtime log output from dev/game runs. This folder is intentionally gitignored and not part of the published source repository.
 
+- `tools/Sync-GitHubWiki.ps1`
+  Maintainer helper for mirroring `docs/XLIB_USAGE_GUIDE.md` plus `docs/wiki/*.md` into the separate GitHub wiki repository layout (`Home.md`, page files, `_Sidebar.md`). It can push directly once the GitHub wiki has been bootstrapped with an initial page in the web UI.
+
 ## Root Bootstrap
 
 - `src/main/java/com/whatxe/xlib/XLib.java`
