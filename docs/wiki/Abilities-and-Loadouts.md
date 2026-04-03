@@ -23,6 +23,30 @@ Common builder pieces:
 - `ticker(...)`
 - `ender(...)`
 
+## High-Level Combat Actions
+
+Use `AbilityActions` when you want a reusable combat helper instead of re-writing target lookup, miss handling, and hit attribution every time.
+
+```java
+AbilityApi.registerAbility(AbilityDefinition.builder(ironBreakerId, AbilityIcon.ofTexture(iconId))
+        .cooldownTicks(20)
+        .action(AbilityActions.meleeStrike(
+                ironBreakerId,
+                CombatTargetingProfile.melee(4.0D),
+                10.0F
+        ))
+        .build());
+```
+
+Useful helpers:
+
+- `AbilityActions.meleeStrike(...)`
+- `AbilityActions.dashBehindAndStrike(...)`
+- `AbilityActions.launchTarget(...)`
+- `AbilityActions.counterStrike(...)`
+
+Each helper uses XLib targeting and hit-resolution, so miss/dodge/block/parry outcomes still flow through `XLibCombatHitEvent`.
+
 ## First-Class Resource Costs
 
 Resource costs are already native to `AbilityDefinition`.
@@ -49,6 +73,26 @@ Useful APIs:
 - `AbilityResourceBehaviors.refillOverTimeExactWhen(...)`
 
 That means gauges can decay at rates like `0.02` or `0.05` per tick without addon authors having to hand-roll their own fixed-point storage.
+
+## Resource Builder Aliases
+
+The resource builder now includes shorter content-authoring aliases for the most common setup path:
+
+```java
+AbilityApi.registerResource(AbilityResourceDefinition.builder(nerveGaugeId)
+        .min(0)
+        .max(100)
+        .startingValue(0)
+        .decayPerTick(0.02D)
+        .build());
+```
+
+These map onto the existing resource system:
+
+- `min(0)` documents the implicit zero floor
+- `max(...)` aliases `maxAmount(...)`
+- `startingValue(...)` aliases `startingAmount(...)`
+- `decayPerTick(...)` adds exact fractional decay behavior
 
 ## Charge-Release Abilities
 

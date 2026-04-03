@@ -82,6 +82,16 @@ public final class UpgradeApi {
         return List.copyOf(TRACKS.values());
     }
 
+    public static List<UpgradeNodeDefinition> nodesInTrack(ResourceLocation trackId) {
+        List<UpgradeNodeDefinition> nodes = new ArrayList<>();
+        for (UpgradeNodeDefinition node : allNodes()) {
+            if (trackId.equals(node.trackId())) {
+                nodes.add(node);
+            }
+        }
+        return List.copyOf(nodes);
+    }
+
     public static List<UpgradeTrackDefinition> visibleTracks(UpgradeProgressData data) {
         List<UpgradeTrackDefinition> visibleTracks = new ArrayList<>();
         for (UpgradeTrackDefinition track : allTracks()) {
@@ -463,6 +473,20 @@ public final class UpgradeApi {
         return blockingTrack(data, trackId).isPresent();
     }
 
+    public static boolean trackHasUnlockedNodes(UpgradeProgressData data, ResourceLocation trackId) {
+        for (UpgradeNodeDefinition node : allNodes()) {
+            if (trackId.equals(node.trackId()) && data.hasUnlockedNode(node.id())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean trackCompleted(UpgradeProgressData data, ResourceLocation trackId) {
+        List<UpgradeNodeDefinition> nodes = nodesInTrack(trackId);
+        return !nodes.isEmpty() && nodes.stream().allMatch(node -> data.hasUnlockedNode(node.id()));
+    }
+
     static UpgradeProgressData revokeTrackNodes(UpgradeProgressData data, ResourceLocation trackId) {
         UpgradeProgressData updatedData = data;
         boolean changed = false;
@@ -517,16 +541,7 @@ public final class UpgradeApi {
         return Optional.empty();
     }
 
-    private static boolean trackHasUnlockedNodes(UpgradeProgressData data, ResourceLocation trackId) {
-        for (UpgradeNodeDefinition node : allNodes()) {
-            if (trackId.equals(node.trackId()) && data.hasUnlockedNode(node.id())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static Component displayTrackName(ResourceLocation trackId) {
+    public static Component displayTrackName(ResourceLocation trackId) {
         return findTrack(trackId)
                 .map(UpgradeTrackDefinition::displayName)
                 .orElse(Component.literal(trackId.toString()));

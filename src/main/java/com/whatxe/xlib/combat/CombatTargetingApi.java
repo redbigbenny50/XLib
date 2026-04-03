@@ -43,6 +43,14 @@ public final class CombatTargetingApi {
             CombatTargetingProfile profile
     ) {
         LivingEntity target = findPrimaryTarget(player, profile).orElse(null);
+        return resolveFixedTarget(player, abilityId, target);
+    }
+
+    public static CombatHitResolution resolveFixedTarget(
+            ServerPlayer player,
+            ResourceLocation abilityId,
+            LivingEntity target
+    ) {
         if (target == null) {
             return CombatHitResolution.miss();
         }

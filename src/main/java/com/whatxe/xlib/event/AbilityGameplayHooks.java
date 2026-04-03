@@ -4,9 +4,12 @@ import com.whatxe.xlib.XLib;
 import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityResourceRuntime;
 import com.whatxe.xlib.ability.PassiveRuntime;
+import com.whatxe.xlib.api.event.XLibIncomingDamageEvent;
+import com.whatxe.xlib.api.event.XLibOutgoingDamageEvent;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.combat.CombatMarkApi;
 import com.whatxe.xlib.combat.CombatMarkData;
+import com.whatxe.xlib.combat.CombatReactionApi;
 import com.whatxe.xlib.progression.UpgradeApi;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -18,6 +21,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEvent;
@@ -36,23 +40,51 @@ public final class AbilityGameplayHooks {
 
     @SubscribeEvent
     public static void onIncomingDamage(LivingIncomingDamageEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) {
-            return;
+        AbilityResourceRuntime.MutableDamageAmount damageAmount = new AbilityResourceRuntime.MutableDamageAmount(event.getAmount());
+        if (event.getEntity() instanceof LivingEntity target
+                && event.getSource().getEntity() instanceof ServerPlayer attackingPlayer) {
+            XLibOutgoingDamageEvent outgoingEvent = new XLibOutgoingDamageEvent(
+                    attackingPlayer,
+                    target,
+                    event.getSource(),
+                    damageAmount.amount()
+            );
+            NeoForge.EVENT_BUS.post(outgoingEvent);
+            if (outgoingEvent.isCanceled()) {
+                event.setCanceled(true);
+                return;
+            }
+            damageAmount.setAmount(outgoingEvent.amount());
         }
 
-        AbilityData currentData = ModAttachments.get(player);
-        AbilityResourceRuntime.MutableDamageAmount damageAmount = new AbilityResourceRuntime.MutableDamageAmount(event.getAmount());
-        AbilityData updatedData = AbilityResourceRuntime.onIncomingDamage(player, currentData, event.getSource(), damageAmount);
-        updatedData = PassiveRuntime.onHurt(player, updatedData, event.getSource(), damageAmount.amount());
-        event.setAmount(damageAmount.amount());
-        if (!updatedData.equals(currentData)) {
-            ModAttachments.set(player, updatedData);
+        if (event.getEntity() instanceof ServerPlayer player) {
+            LivingEntity attacker = event.getSource().getEntity() instanceof LivingEntity living ? living : null;
+            XLibIncomingDamageEvent incomingEvent = new XLibIncomingDamageEvent(player, event.getSource(), attacker, damageAmount.amount());
+            NeoForge.EVENT_BUS.post(incomingEvent);
+            if (incomingEvent.isCanceled()) {
+                event.setCanceled(true);
+                return;
+            }
+            damageAmount.setAmount(incomingEvent.amount());
+
+            AbilityData currentData = ModAttachments.get(player);
+            AbilityData updatedData = AbilityResourceRuntime.onIncomingDamage(player, currentData, event.getSource(), damageAmount);
+            updatedData = PassiveRuntime.onHurt(player, updatedData, event.getSource(), damageAmount.amount());
+            if (!updatedData.equals(currentData)) {
+                ModAttachments.set(player, updatedData);
+            }
         }
+        event.setAmount(damageAmount.amount());
     }
 
     @SubscribeEvent
     public static void onDamagePost(LivingDamageEvent.Post event) {
         DamageSource source = event.getSource();
+        LivingEntity targetEntity = event.getEntity();
+        LivingEntity attackerEntity = source.getEntity() instanceof LivingEntity living && living != targetEntity ? living : null;
+        if (event.getNewDamage() > 0.0F) {
+            CombatReactionApi.recordIncomingHit(targetEntity, attackerEntity, event.getNewDamage());
+        }
         if (!(source.getEntity() instanceof ServerPlayer player) || !(event.getEntity() instanceof LivingEntity target)) {
             return;
         }
@@ -74,6 +106,7 @@ public final class AbilityGameplayHooks {
             if (!currentMarks.marks().isEmpty()) {
                 CombatMarkApi.clear(livingEntity);
             }
+            CombatReactionApi.clear(livingEntity);
         }
 
         if (!(event.getSource().getEntity() instanceof ServerPlayer player) || !(event.getEntity() instanceof LivingEntity target)) {

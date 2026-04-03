@@ -149,8 +149,23 @@ public final class AbilityResourceDefinition {
             return this;
         }
 
+        public Builder max(int maxAmount) {
+            return maxAmount(maxAmount);
+        }
+
         public Builder startingAmount(int startingAmount) {
             this.startingAmount = startingAmount;
+            return this;
+        }
+
+        public Builder startingValue(int startingAmount) {
+            return startingAmount(startingAmount);
+        }
+
+        public Builder min(int minAmount) {
+            if (minAmount != 0) {
+                throw new IllegalArgumentException("XLib resources currently use an implicit minimum of 0");
+            }
             return this;
         }
 
@@ -178,6 +193,10 @@ public final class AbilityResourceDefinition {
         public Builder behavior(AbilityResourceBehavior behavior) {
             this.behaviors.add(Objects.requireNonNull(behavior, "behavior"));
             return this;
+        }
+
+        public Builder decayPerTick(double amount) {
+            return behavior(AbilityResourceBehaviors.decayExact(amount, 0, 1));
         }
 
         public Builder ticker(ResourceTicker ticker) {

@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
@@ -55,6 +56,55 @@ public final class UpgradeRequirements {
         return predicate(message, (player, data) -> data.hasUnlockedNode(nodeId));
     }
 
+    public static UpgradeRequirement all(UpgradeRequirement... requirements) {
+        return all(java.util.List.of(requirements));
+    }
+
+    public static UpgradeRequirement all(Collection<UpgradeRequirement> requirements) {
+        java.util.List<UpgradeRequirement> copied = java.util.List.copyOf(requirements);
+        Component description = Component.translatable("message.xlib.upgrade.requirement_all", joinedDescriptions(copied));
+        return UpgradeRequirement.of(description, (player, data) -> firstFailure(player, data, copied));
+    }
+
+    public static UpgradeRequirement any(UpgradeRequirement... requirements) {
+        return any(java.util.List.of(requirements));
+    }
+
+    public static UpgradeRequirement any(Collection<UpgradeRequirement> requirements) {
+        java.util.List<UpgradeRequirement> copied = java.util.List.copyOf(requirements);
+        if (copied.isEmpty()) {
+            throw new IllegalArgumentException("any(...) requires at least one requirement");
+        }
+        Component description = Component.translatable("message.xlib.upgrade.requirement_any", joinedDescriptions(copied));
+        return UpgradeRequirement.of(description, (player, data) -> {
+            for (UpgradeRequirement requirement : copied) {
+                if (requirement.validate(player, data).isEmpty()) {
+                    return Optional.empty();
+                }
+            }
+            return Optional.of(description);
+        });
+    }
+
+    public static UpgradeRequirement trackCompleted(ResourceLocation trackId) {
+        Objects.requireNonNull(trackId, "trackId");
+        Component message = Component.translatable("message.xlib.upgrade.requirement_track", UpgradeApi.displayTrackName(trackId));
+        return predicate(message, (player, data) -> UpgradeApi.trackCompleted(data, trackId));
+    }
+
+    public static UpgradeRequirement anyNodeUnlocked(ResourceLocation... nodeIds) {
+        return anyNodeUnlocked(java.util.List.of(nodeIds));
+    }
+
+    public static UpgradeRequirement anyNodeUnlocked(Collection<ResourceLocation> nodeIds) {
+        java.util.List<ResourceLocation> copied = java.util.List.copyOf(nodeIds);
+        if (copied.isEmpty()) {
+            throw new IllegalArgumentException("anyNodeUnlocked(...) requires at least one node id");
+        }
+        Component message = Component.translatable("message.xlib.upgrade.requirement_any_node", joinedNodeNames(copied));
+        return predicate(message, (player, data) -> copied.stream().anyMatch(data::hasUnlockedNode));
+    }
+
     public static Optional<Component> firstFailure(
             @Nullable ServerPlayer player,
             UpgradeProgressData data,
@@ -81,6 +131,32 @@ public final class UpgradeRequirements {
 
     public static Component displayCounterName(ResourceLocation counterId) {
         return Component.literal(humanize(counterId));
+    }
+
+    private static Component joinedDescriptions(Collection<UpgradeRequirement> requirements) {
+        MutableComponent joined = Component.empty();
+        boolean first = true;
+        for (UpgradeRequirement requirement : requirements) {
+            if (!first) {
+                joined = joined.append(Component.literal(", "));
+            }
+            joined = joined.append(requirement.description());
+            first = false;
+        }
+        return joined;
+    }
+
+    private static Component joinedNodeNames(Collection<ResourceLocation> nodeIds) {
+        MutableComponent joined = Component.empty();
+        boolean first = true;
+        for (ResourceLocation nodeId : nodeIds) {
+            if (!first) {
+                joined = joined.append(Component.literal(", "));
+            }
+            joined = joined.append(displayNodeName(nodeId));
+            first = false;
+        }
+        return joined;
     }
 
     private static String humanize(ResourceLocation id) {
