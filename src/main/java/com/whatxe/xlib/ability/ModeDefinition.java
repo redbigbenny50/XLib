@@ -15,8 +15,12 @@ public final class ModeDefinition {
     private final int priority;
     private final boolean stackable;
     private final @Nullable ResourceLocation cycleGroupId;
+    private final int cycleOrder;
     private final Set<ResourceLocation> resetCycleGroupsOnActivate;
     private final double cooldownTickRateMultiplier;
+    private final double healthCostPerTick;
+    private final double minimumHealth;
+    private final Map<ResourceLocation, Double> resourceDeltaPerTick;
     private final Set<ResourceLocation> exclusiveModes;
     private final Set<ResourceLocation> blockedByModes;
     private final Set<ResourceLocation> transformsFrom;
@@ -32,8 +36,12 @@ public final class ModeDefinition {
             int priority,
             boolean stackable,
             @Nullable ResourceLocation cycleGroupId,
+            int cycleOrder,
             Set<ResourceLocation> resetCycleGroupsOnActivate,
             double cooldownTickRateMultiplier,
+            double healthCostPerTick,
+            double minimumHealth,
+            Map<ResourceLocation, Double> resourceDeltaPerTick,
             Set<ResourceLocation> exclusiveModes,
             Set<ResourceLocation> blockedByModes,
             Set<ResourceLocation> transformsFrom,
@@ -48,8 +56,12 @@ public final class ModeDefinition {
         this.priority = priority;
         this.stackable = stackable;
         this.cycleGroupId = cycleGroupId;
+        this.cycleOrder = cycleOrder;
         this.resetCycleGroupsOnActivate = Set.copyOf(resetCycleGroupsOnActivate);
         this.cooldownTickRateMultiplier = cooldownTickRateMultiplier;
+        this.healthCostPerTick = healthCostPerTick;
+        this.minimumHealth = minimumHealth;
+        this.resourceDeltaPerTick = Map.copyOf(resourceDeltaPerTick);
         this.exclusiveModes = Set.copyOf(exclusiveModes);
         this.blockedByModes = Set.copyOf(blockedByModes);
         this.transformsFrom = Set.copyOf(transformsFrom);
@@ -81,12 +93,28 @@ public final class ModeDefinition {
         return this.cycleGroupId;
     }
 
+    public int cycleOrder() {
+        return this.cycleOrder;
+    }
+
     public Set<ResourceLocation> resetCycleGroupsOnActivate() {
         return this.resetCycleGroupsOnActivate;
     }
 
     public double cooldownTickRateMultiplier() {
         return this.cooldownTickRateMultiplier;
+    }
+
+    public double healthCostPerTick() {
+        return this.healthCostPerTick;
+    }
+
+    public double minimumHealth() {
+        return this.minimumHealth;
+    }
+
+    public Map<ResourceLocation, Double> resourceDeltaPerTick() {
+        return this.resourceDeltaPerTick;
     }
 
     public Set<ResourceLocation> exclusiveModes() {
@@ -147,8 +175,12 @@ public final class ModeDefinition {
         private int priority;
         private boolean stackable;
         private @Nullable ResourceLocation cycleGroupId;
+        private int cycleOrder;
         private final Set<ResourceLocation> resetCycleGroupsOnActivate = new LinkedHashSet<>();
         private double cooldownTickRateMultiplier = 1.0D;
+        private double healthCostPerTick;
+        private double minimumHealth;
+        private final Map<ResourceLocation, Double> resourceDeltaPerTick = new LinkedHashMap<>();
         private final Set<ResourceLocation> exclusiveModes = new LinkedHashSet<>();
         private final Set<ResourceLocation> blockedByModes = new LinkedHashSet<>();
         private final Set<ResourceLocation> transformsFrom = new LinkedHashSet<>();
@@ -182,6 +214,18 @@ public final class ModeDefinition {
             return this;
         }
 
+        public Builder orderedCycle(ResourceLocation groupId, int cycleOrder) {
+            return cycleGroup(groupId).cycleOrder(cycleOrder);
+        }
+
+        public Builder cycleOrder(int cycleOrder) {
+            if (cycleOrder <= 0) {
+                throw new IllegalArgumentException("cycleOrder must be positive");
+            }
+            this.cycleOrder = cycleOrder;
+            return this;
+        }
+
         public Builder resetCycleGroupOnActivate(ResourceLocation groupId) {
             this.resetCycleGroupsOnActivate.add(Objects.requireNonNull(groupId, "groupId"));
             return this;
@@ -199,6 +243,27 @@ public final class ModeDefinition {
                 throw new IllegalArgumentException("cooldownTickRateMultiplier must be positive");
             }
             this.cooldownTickRateMultiplier = multiplier;
+            return this;
+        }
+
+        public Builder healthCostPerTick(double amount) {
+            if (amount < 0.0D) {
+                throw new IllegalArgumentException("healthCostPerTick cannot be negative");
+            }
+            this.healthCostPerTick = amount;
+            return this;
+        }
+
+        public Builder minimumHealth(double minimumHealth) {
+            if (minimumHealth < 0.0D) {
+                throw new IllegalArgumentException("minimumHealth cannot be negative");
+            }
+            this.minimumHealth = minimumHealth;
+            return this;
+        }
+
+        public Builder resourceDeltaPerTick(ResourceLocation resourceId, double amount) {
+            this.resourceDeltaPerTick.put(Objects.requireNonNull(resourceId, "resourceId"), amount);
             return this;
         }
 
@@ -296,8 +361,12 @@ public final class ModeDefinition {
                     this.priority,
                     this.stackable,
                     this.cycleGroupId,
+                    this.cycleOrder,
                     this.resetCycleGroupsOnActivate,
                     this.cooldownTickRateMultiplier,
+                    this.healthCostPerTick,
+                    this.minimumHealth,
+                    this.resourceDeltaPerTick,
                     this.exclusiveModes,
                     this.blockedByModes,
                     this.transformsFrom,

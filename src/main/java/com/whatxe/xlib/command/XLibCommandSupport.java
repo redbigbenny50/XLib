@@ -160,11 +160,19 @@ final class XLibCommandSupport {
         return AbilityApi.allResources().stream()
                 .sorted(Comparator.comparing(resource -> resource.id().toString()))
                 .map(AbilityResourceDefinition::id)
-                .map(resourceId -> resourceId + "=" + data.resourceAmount(resourceId)
+                .map(resourceId -> resourceId + "=" + formatExactAmount(data.resourceAmountExact(resourceId))
                         + " (regen=" + data.resourceRegenDelay(resourceId)
                         + ", decay=" + data.resourceDecayDelay(resourceId) + ")")
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("-");
+    }
+
+    private static String formatExactAmount(double amount) {
+        int whole = (int) Math.round(amount);
+        if (Math.abs(amount - whole) < 0.001D) {
+            return Integer.toString(whole);
+        }
+        return String.format(java.util.Locale.ROOT, "%.2f", amount);
     }
 
     static String formatComboWindows(AbilityData data) {

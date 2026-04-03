@@ -8,6 +8,12 @@ import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
 public final class ComboChainDefinition {
+    public enum TriggerType {
+        ACTIVATION,
+        HIT_CONFIRM,
+        END
+    }
+
     @FunctionalInterface
     public interface BranchCondition {
         boolean test(ServerPlayer player, AbilityData data);
@@ -24,6 +30,7 @@ public final class ComboChainDefinition {
     private final ResourceLocation triggerAbilityId;
     private final ResourceLocation comboAbilityId;
     private final List<Branch> branches;
+    private final TriggerType triggerType;
     private final int windowTicks;
     private final boolean transformTriggeredSlot;
     private final @Nullable Integer targetSlot;
@@ -33,6 +40,7 @@ public final class ComboChainDefinition {
             ResourceLocation triggerAbilityId,
             ResourceLocation comboAbilityId,
             List<Branch> branches,
+            TriggerType triggerType,
             int windowTicks,
             boolean transformTriggeredSlot,
             @Nullable Integer targetSlot
@@ -41,6 +49,7 @@ public final class ComboChainDefinition {
         this.triggerAbilityId = triggerAbilityId;
         this.comboAbilityId = comboAbilityId;
         this.branches = List.copyOf(branches);
+        this.triggerType = triggerType;
         this.windowTicks = windowTicks;
         this.transformTriggeredSlot = transformTriggeredSlot;
         this.targetSlot = targetSlot;
@@ -64,6 +73,10 @@ public final class ComboChainDefinition {
 
     public List<Branch> branches() {
         return this.branches;
+    }
+
+    public TriggerType triggerType() {
+        return this.triggerType;
     }
 
     public int windowTicks() {
@@ -92,6 +105,7 @@ public final class ComboChainDefinition {
         private final ResourceLocation triggerAbilityId;
         private final ResourceLocation comboAbilityId;
         private final List<Branch> branches = new ArrayList<>();
+        private TriggerType triggerType = TriggerType.ACTIVATION;
         private int windowTicks = 30;
         private boolean transformTriggeredSlot;
         private Integer targetSlot;
@@ -109,6 +123,21 @@ public final class ComboChainDefinition {
 
         public Builder branch(ResourceLocation comboAbilityId, BranchCondition condition) {
             this.branches.add(new Branch(comboAbilityId, condition));
+            return this;
+        }
+
+        public Builder triggerOnHit() {
+            this.triggerType = TriggerType.HIT_CONFIRM;
+            return this;
+        }
+
+        public Builder triggerOnEnd() {
+            this.triggerType = TriggerType.END;
+            return this;
+        }
+
+        public Builder triggerOnActivation() {
+            this.triggerType = TriggerType.ACTIVATION;
             return this;
         }
 
@@ -136,6 +165,7 @@ public final class ComboChainDefinition {
                     this.triggerAbilityId,
                     this.comboAbilityId,
                     this.branches,
+                    this.triggerType,
                     this.windowTicks,
                     this.transformTriggeredSlot,
                     this.targetSlot

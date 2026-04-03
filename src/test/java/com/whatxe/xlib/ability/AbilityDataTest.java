@@ -11,6 +11,7 @@ class AbilityDataTest {
     private static final ResourceLocation ABILITY_ID = id("dash");
     private static final ResourceLocation GRANTED_ITEM_ID = id("fang");
     private static final ResourceLocation RECIPE_ID = id("fang_recipe");
+    private static final ResourceLocation RESOURCE_ID = id("meter");
     private static final ResourceLocation SOURCE_A = id("source_a");
     private static final ResourceLocation SOURCE_B = id("source_b");
 
@@ -80,6 +81,19 @@ class AbilityDataTest {
         assertTrue(revoked.hasRecipePermission(RECIPE_ID));
         assertEquals(1, revoked.recipePermissionSourcesFor(RECIPE_ID).size());
         assertTrue(revoked.recipePermissionSourcesFor(RECIPE_ID).contains(SOURCE_B));
+    }
+
+    @Test
+    void exactResourceAmountsRetainFractionalProgress() {
+        AbilityData data = AbilityData.empty().withResourceAmountExact(RESOURCE_ID, 12.375D);
+
+        assertEquals(12, data.resourceAmount(RESOURCE_ID));
+        assertEquals(375, data.resourcePartialAmount(RESOURCE_ID));
+        assertEquals(12.375D, data.resourceAmountExact(RESOURCE_ID), 0.0001D);
+
+        AbilityData rounded = data.withResourceAmount(RESOURCE_ID, 5);
+        assertEquals(5.0D, rounded.resourceAmountExact(RESOURCE_ID), 0.0001D);
+        assertEquals(0, rounded.resourcePartialAmount(RESOURCE_ID));
     }
 
     private static ResourceLocation id(String path) {

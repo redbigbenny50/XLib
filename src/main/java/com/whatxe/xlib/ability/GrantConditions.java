@@ -46,6 +46,11 @@ public final class GrantConditions {
         return (player, data, stack) -> data.resourceAmount(resourceId) >= amount;
     }
 
+    public static GrantCondition resourceAtLeastExact(ResourceLocation resourceId, double amount) {
+        Objects.requireNonNull(resourceId, "resourceId");
+        return (player, data, stack) -> data.resourceAmountExact(resourceId) + 1.0E-9D >= amount;
+    }
+
     public static boolean allMatch(
             Player player,
             AbilityData data,

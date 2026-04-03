@@ -21,7 +21,7 @@ public final class AbilityResourceDefinition {
 
     private static final ResourceTicker NOOP_TICKER = (player, data, resource) -> data;
     private static final ResourceVisibility DEFAULT_VISIBILITY =
-            (player, data, resource) -> data.resourceAmount(resource.id()) > 0
+            (player, data, resource) -> data.resourceAmountExact(resource.id()) > 0.0D
                     || data.resourceRegenDelay(resource.id()) > 0
                     || data.resourceDecayDelay(resource.id()) > 0;
 

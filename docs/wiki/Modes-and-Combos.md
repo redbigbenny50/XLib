@@ -60,6 +60,22 @@ You can also reset a cycle directly:
 ModeApi.resetCycleGroup(player, kataCycleId);
 ```
 
+## Ordered Cycle Steps
+
+If the rotation must happen in a strict order instead of "any unused stance once per cycle", declare an ordered step:
+
+```java
+ModeApi.registerMode(ModeDefinition.builder(tigerId)
+        .orderedCycle(kataCycleId, 1)
+        .build());
+
+ModeApi.registerMode(ModeDefinition.builder(craneId)
+        .orderedCycle(kataCycleId, 2)
+        .build());
+```
+
+That blocks activating `craneId` until the step-1 mode has already been used in the current cycle.
+
 ## Cooldown Scaling
 
 Modes and passives can both scale cooldown and charge recovery speed.
@@ -72,6 +88,21 @@ ModeApi.registerMode(ModeDefinition.builder(advanceId)
 ```
 
 Those multipliers combine multiplicatively while the relevant mode or passive is active.
+
+## Mode Upkeep
+
+Modes can also apply built-in upkeep each tick:
+
+```java
+ModeApi.registerMode(ModeDefinition.builder(removalId)
+        .stackable()
+        .healthCostPerTick(1.0D)
+        .minimumHealth(2.0D)
+        .resourceDeltaPerTick(nerveGaugeId, 0.25D)
+        .build());
+```
+
+This is useful for hp-burn transformations, maintenance costs, or regenerating/draining a resource while the mode stays active.
 
 ## Mode End Reasons
 
@@ -123,3 +154,22 @@ How it works:
 - if no branch matches, XLib uses the default follow-up
 
 That means the system understands these follow-ups as alternatives, not as multiple unrelated chains that happened to share a trigger.
+
+## Trigger Timing
+
+Combo chains are no longer limited to opening only on activation.
+
+You can also open them on hit-confirm or when the parent ability ends:
+
+```java
+ComboChainApi.registerChain(ComboChainDefinition.builder(chainId, haymakerId, followupId)
+        .triggerOnHit()
+        .transformTriggeredSlot()
+        .build());
+```
+
+Available trigger timing options:
+
+- activation
+- hit confirm
+- end/release

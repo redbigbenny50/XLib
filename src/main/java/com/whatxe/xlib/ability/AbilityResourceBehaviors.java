@@ -55,6 +55,15 @@ public final class AbilityResourceBehaviors {
         return conditionalTick(intervalTicks, playerPredicate, (player, data, resource) -> AbilityResourceApi.addAmount(data, resource.id(), amount));
     }
 
+    public static AbilityResourceBehavior refillOverTimeExactWhen(
+            Predicate<ServerPlayer> playerPredicate,
+            double amount,
+            int intervalTicks
+    ) {
+        Objects.requireNonNull(playerPredicate, "playerPredicate");
+        return conditionalTick(intervalTicks, playerPredicate, (player, data, resource) -> AbilityResourceApi.addAmountExact(data, resource.id(), amount));
+    }
+
     public static AbilityResourceBehavior refillInBiome(TagKey<Biome> biomeTag, int amount, int intervalTicks) {
         Objects.requireNonNull(biomeTag, "biomeTag");
         return new AbilityResourceBehavior() {
@@ -72,8 +81,7 @@ public final class AbilityResourceBehaviors {
         return new AbilityResourceBehavior() {
             @Override
             public AbilityData onTick(ServerPlayer player, AbilityData data, AbilityResourceDefinition resource) {
-                int currentAmount = data.resourceAmount(resource.id());
-                if (currentAmount <= 0) {
+                if (data.resourceAmountExact(resource.id()) <= 0.0D) {
                     return data.withResourceDecayDelay(resource.id(), 0);
                 }
                 int currentDelay = data.resourceDecayDelay(resource.id());
@@ -87,6 +95,29 @@ public final class AbilityResourceBehaviors {
                     return data;
                 }
                 AbilityData updatedData = AbilityResourceApi.addAmount(data, resource.id(), -amount);
+                return updatedData.withResourceDecayDelay(resource.id(), delayTicks);
+            }
+        };
+    }
+
+    public static AbilityResourceBehavior decayExact(double amount, int delayTicks, int intervalTicks) {
+        return new AbilityResourceBehavior() {
+            @Override
+            public AbilityData onTick(ServerPlayer player, AbilityData data, AbilityResourceDefinition resource) {
+                if (data.resourceAmountExact(resource.id()) <= 0.0D) {
+                    return data.withResourceDecayDelay(resource.id(), 0);
+                }
+                int currentDelay = data.resourceDecayDelay(resource.id());
+                if (currentDelay <= 0) {
+                    currentDelay = delayTicks;
+                }
+                if (currentDelay > 1) {
+                    return data.withResourceDecayDelay(resource.id(), currentDelay - 1);
+                }
+                if (intervalTicks > 1 && player.tickCount % intervalTicks != 0) {
+                    return data;
+                }
+                AbilityData updatedData = AbilityResourceApi.addAmountExact(data, resource.id(), -amount);
                 return updatedData.withResourceDecayDelay(resource.id(), delayTicks);
             }
         };

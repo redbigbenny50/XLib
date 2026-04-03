@@ -5,6 +5,8 @@ import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityResourceRuntime;
 import com.whatxe.xlib.ability.PassiveRuntime;
 import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.combat.CombatMarkApi;
+import com.whatxe.xlib.combat.CombatMarkData;
 import com.whatxe.xlib.progression.UpgradeApi;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -22,6 +24,7 @@ import net.neoforged.neoforge.event.entity.living.LivingEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -66,6 +69,13 @@ public final class AbilityGameplayHooks {
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof LivingEntity livingEntity) {
+            CombatMarkData currentMarks = ModAttachments.getMarks(livingEntity);
+            if (!currentMarks.marks().isEmpty()) {
+                CombatMarkApi.clear(livingEntity);
+            }
+        }
+
         if (!(event.getSource().getEntity() instanceof ServerPlayer player) || !(event.getEntity() instanceof LivingEntity target)) {
             return;
         }
@@ -80,6 +90,23 @@ public final class AbilityGameplayHooks {
             ModAttachments.set(player, updatedData);
         }
         UpgradeApi.onKill(player, target);
+    }
+
+    @SubscribeEvent
+    public static void onEntityTick(EntityTickEvent.Post event) {
+        if (!(event.getEntity() instanceof LivingEntity livingEntity) || livingEntity.level().isClientSide) {
+            return;
+        }
+
+        CombatMarkData currentMarks = ModAttachments.getMarks(livingEntity);
+        if (currentMarks.marks().isEmpty()) {
+            return;
+        }
+
+        CombatMarkData updatedMarks = CombatMarkApi.tick(livingEntity, currentMarks);
+        if (!updatedMarks.equals(currentMarks)) {
+            ModAttachments.setMarks(livingEntity, updatedMarks);
+        }
     }
 
     @SubscribeEvent

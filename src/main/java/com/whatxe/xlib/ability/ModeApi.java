@@ -96,6 +96,18 @@ public final class ModeApi {
                 && !mode.resetCycleGroupsOnActivate().contains(cycleGroupId)) {
             return Optional.of(Component.translatable("message.xlib.mode_cycle_spent", displayName(mode.abilityId())));
         }
+        if (cycleGroupId != null
+                && mode.cycleOrder() > 0
+                && !mode.resetCycleGroupsOnActivate().contains(cycleGroupId)) {
+            int expectedOrder = data.modeCycleHistoryFor(cycleGroupId).size() + 1;
+            if (mode.cycleOrder() != expectedOrder) {
+                return Optional.of(Component.translatable(
+                        "message.xlib.mode_cycle_order",
+                        displayName(mode.abilityId()),
+                        expectedOrder
+                ));
+            }
+        }
 
         if (!mode.transformsFrom().isEmpty() && mode.transformsFrom().stream().noneMatch(data::isModeActive)) {
             return Optional.of(Component.translatable(
@@ -179,6 +191,29 @@ public final class ModeApi {
             multiplier *= mode.cooldownTickRateMultiplier();
         }
         return multiplier;
+    }
+
+    public static AbilityData applyUpkeep(ServerPlayer player, AbilityData data, AbilityDefinition ability) {
+        ModeDefinition mode = findMode(ability.id()).orElse(null);
+        if (mode == null) {
+            return data;
+        }
+
+        if (mode.healthCostPerTick() > 0.0D) {
+            if (player.getHealth() - mode.healthCostPerTick() < mode.minimumHealth()) {
+                return AbilityRuntime.endAbility(player, data, ability, AbilityEndReason.REQUIREMENT_INVALIDATED).data();
+            }
+            player.hurt(player.damageSources().generic(), (float) mode.healthCostPerTick());
+        }
+
+        AbilityData updatedData = data;
+        for (Map.Entry<ResourceLocation, Double> entry : mode.resourceDeltaPerTick().entrySet()) {
+            if (entry.getValue() < 0.0D && updatedData.resourceAmountExact(entry.getKey()) + entry.getValue() < 0.0D) {
+                return AbilityRuntime.endAbility(player, updatedData, ability, AbilityEndReason.REQUIREMENT_INVALIDATED).data();
+            }
+            updatedData = AbilityResourceApi.addAmountExact(updatedData, entry.getKey(), entry.getValue());
+        }
+        return updatedData;
     }
 
     public static void postModeStarted(ServerPlayer player, AbilityDefinition ability, AbilityData previousData, AbilityData updatedData) {

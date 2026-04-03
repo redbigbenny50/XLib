@@ -164,7 +164,7 @@ public final class CombatBarOverlay {
             int x,
             int y
     ) {
-        int currentAmount = data.resourceAmount(resource.id());
+        double currentAmount = data.resourceAmountExact(resource.id());
         int totalCapacity = Math.max(1, resource.totalCapacity());
         if (layout.orientation() == AbilityResourceHudOrientation.VERTICAL) {
             renderVerticalResourceBar(guiGraphics, minecraft, resource, layout, x, y, currentAmount, totalCapacity);
@@ -258,7 +258,7 @@ public final class CombatBarOverlay {
             AbilityResourceHudLayout layout,
             int x,
             int y,
-            int currentAmount,
+            double currentAmount,
             int totalCapacity
     ) {
         int outerRight = x + layout.width();
@@ -268,7 +268,7 @@ public final class CombatBarOverlay {
                 ? fitLabel(minecraft, resource.displayName().getString(), Math.max(20, layout.width() / 2))
                 : compactResourceLabel(resource, 3);
         String amountLabel = detailedHud
-                ? currentAmount + "/" + totalCapacity
+                ? formatExactAmount(currentAmount) + "/" + formatExactAmount(totalCapacity)
                 : compactAmount(currentAmount);
         int labelWidth = Math.min(Math.max(20, minecraft.font.width(label) + 6), Math.max(24, layout.width() / 2));
         int valueWidth = Math.min(Math.max(20, minecraft.font.width(amountLabel) + 6), Math.max(24, layout.width() / 2));
@@ -277,9 +277,9 @@ public final class CombatBarOverlay {
         int barTop = y + 2;
         int barBottom = outerBottom - 2;
         int usableWidth = Math.max(1, barRight - barLeft - 2);
-        int fillWidth = Math.round(usableWidth * (currentAmount / (float)totalCapacity));
-        int normalCapacityWidth = Math.round(usableWidth * (resource.maxAmount() / (float)totalCapacity));
-        int baseFillWidth = Math.round(usableWidth * (Math.min(currentAmount, resource.maxAmount()) / (float)totalCapacity));
+        int fillWidth = (int) Math.round(usableWidth * (currentAmount / totalCapacity));
+        int normalCapacityWidth = (int) Math.round(usableWidth * (resource.maxAmount() / (double) totalCapacity));
+        int baseFillWidth = (int) Math.round(usableWidth * (Math.min(currentAmount, resource.maxAmount()) / totalCapacity));
         int overflowFillWidth = Math.max(0, fillWidth - normalCapacityWidth);
         int resourceColor = CombatBarPreferences.mapHudColor(resource.color());
 
@@ -322,7 +322,7 @@ public final class CombatBarOverlay {
             AbilityResourceHudLayout layout,
             int x,
             int y,
-            int currentAmount,
+            double currentAmount,
             int totalCapacity
     ) {
         int footerHeight = Math.min(10, Math.max(8, layout.width() - 4));
@@ -331,9 +331,9 @@ public final class CombatBarOverlay {
         int gaugeTop = y + 10;
         int gaugeBottom = frameBottom - footerHeight - 1;
         int usableHeight = Math.max(1, gaugeBottom - gaugeTop - 1);
-        int fillHeight = Math.round(usableHeight * (currentAmount / (float)totalCapacity));
-        int normalCapacityHeight = Math.round(usableHeight * (resource.maxAmount() / (float)totalCapacity));
-        int baseFillHeight = Math.round(usableHeight * (Math.min(currentAmount, resource.maxAmount()) / (float)totalCapacity));
+        int fillHeight = (int) Math.round(usableHeight * (currentAmount / totalCapacity));
+        int normalCapacityHeight = (int) Math.round(usableHeight * (resource.maxAmount() / (double) totalCapacity));
+        int baseFillHeight = (int) Math.round(usableHeight * (Math.min(currentAmount, resource.maxAmount()) / totalCapacity));
         int overflowFillHeight = Math.max(0, fillHeight - normalCapacityHeight);
         int innerLeft = x + 2;
         int innerRight = frameRight - 2;
@@ -368,7 +368,9 @@ public final class CombatBarOverlay {
             guiGraphics.fill(x, frameBottom - 1, frameRight, frameBottom, 0xCCBFE7FF);
         }
 
-        String amountLabel = detailedHud ? currentAmount + "/" + totalCapacity : compactAmount(currentAmount);
+        String amountLabel = detailedHud
+                ? formatExactAmount(currentAmount) + "/" + formatExactAmount(totalCapacity)
+                : compactAmount(currentAmount);
         guiGraphics.drawString(
                 minecraft.font,
                 fitLabel(minecraft, amountLabel, layout.width() - 2),
@@ -426,11 +428,15 @@ public final class CombatBarOverlay {
         };
     }
 
-    private static String compactAmount(int amount) {
-        if (amount >= 1000) {
-            return (amount / 1000) + "k";
+    private static String compactAmount(double amount) {
+        int whole = (int) Math.floor(amount + 1.0E-9D);
+        if (Math.abs(amount - whole) > 0.001D && amount < 100.0D) {
+            return String.format(Locale.ROOT, "%.1f", amount);
         }
-        return Integer.toString(amount);
+        if (whole >= 1000) {
+            return (whole / 1000) + "k";
+        }
+        return Integer.toString(whole);
     }
 
     private static String compactResourceLabel(AbilityResourceDefinition resource, int maxChars) {
@@ -464,6 +470,14 @@ public final class CombatBarOverlay {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
         return trimmed.isEmpty() ? ellipsis : trimmed + ellipsis;
+    }
+
+    private static String formatExactAmount(double amount) {
+        int whole = (int) Math.round(amount);
+        if (Math.abs(amount - whole) < 0.001D) {
+            return Integer.toString(whole);
+        }
+        return String.format(Locale.ROOT, "%.2f", amount);
     }
 
     private static int lightenColor(int color, int amount) {

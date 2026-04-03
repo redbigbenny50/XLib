@@ -25,11 +25,12 @@ XLib is a library mod for:
 
 - active combat abilities with cooldowns, charges, resource costs, and slot assignment
 - base loadouts plus player-authored mode-specific presets
-- modes, forms, and stances with overlays, exclusivity, transforms, cycle groups, and cooldown scaling
-- combo windows and branching combo follow-ups
+- modes, forms, and stances with overlays, exclusivity, transforms, ordered cycle groups, upkeep helpers, and cooldown scaling
+- combo windows and branching combo follow-ups, including hit-confirm and end-triggered follow-ups
+- custom combat marks/debuffs plus reusable targeting/hit-resolution helpers
 - source-tracked ability, passive, item, and recipe grants
 - managed granted items with storage policy enforcement
-- exact and selector-based recipe restrictions with JEI/EMI integration
+- exact/fractional resources, exact and selector-based recipe restrictions, and JEI/EMI integration
 - an optional progression module for point, counter, track, and node systems
 
 ## Quick Mental Model
@@ -44,6 +45,10 @@ XLib is a library mod for:
 
 - Branching combo chains are already supported with `ComboChainDefinition.builder(...).branch(...)`.
 - Player-authored mode presets are built into the loadout system and configurable in the ability menu.
+- Exact fractional resource values are now first-class, including HUD rendering and helper APIs for slow decay/drain styles.
+- Custom combat marks let addon authors define their own timed debuffs/flags without forcing everything into built-in effects.
+- Targeting and combat geometry helpers now cover aimed target selection, hit resolution, teleport-behind, and knockback helpers for melee kits.
+- Modes can now enforce strict ordered cycle steps and apply built-in upkeep like hp drain or per-tick resource changes.
 - Recipe restrictions now support exact ids, selectors, advancement-backed unlocks, cached rule resolution, and live viewer sync.
 - Granted items now have explicit external-storage policy control instead of only best-effort cleanup.
 - The built-in docs are now split into topic pages so the project can read like a library wiki on GitHub and CurseForge.

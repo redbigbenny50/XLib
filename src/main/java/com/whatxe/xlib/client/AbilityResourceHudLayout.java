@@ -9,7 +9,25 @@ public record AbilityResourceHudLayout(
         int priority
 ) {
     public static AbilityResourceHudLayout defaultLayout() {
-        return builder().build();
+        return wideAboveHotbar().build();
+    }
+
+    public static Builder wideAboveHotbar() {
+        return builder()
+                .anchor(AbilityResourceHudAnchor.ABOVE_HOTBAR_RIGHT)
+                .orientation(AbilityResourceHudOrientation.HORIZONTAL)
+                .width(104)
+                .height(14)
+                .spacing(3);
+    }
+
+    public static Builder compactSidebar() {
+        return builder()
+                .anchor(AbilityResourceHudAnchor.RIGHT_OF_HOTBAR)
+                .orientation(AbilityResourceHudOrientation.VERTICAL)
+                .width(18)
+                .height(54)
+                .spacing(4);
     }
 
     public static Builder builder() {
@@ -17,11 +35,11 @@ public record AbilityResourceHudLayout(
     }
 
     public static final class Builder {
-        private AbilityResourceHudAnchor anchor = AbilityResourceHudAnchor.RIGHT_OF_HOTBAR;
-        private AbilityResourceHudOrientation orientation = AbilityResourceHudOrientation.VERTICAL;
-        private int width = 18;
-        private int height = 54;
-        private int spacing = 4;
+        private AbilityResourceHudAnchor anchor = AbilityResourceHudAnchor.ABOVE_HOTBAR_RIGHT;
+        private AbilityResourceHudOrientation orientation = AbilityResourceHudOrientation.HORIZONTAL;
+        private int width = 104;
+        private int height = 14;
+        private int spacing = 3;
         private int priority;
 
         private Builder() {}

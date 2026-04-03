@@ -86,7 +86,7 @@ public final class AbilityResourceRuntime {
         }
 
         if (resource.regenIntervalTicks() <= 1) {
-            return AbilityResourceApi.withAmount(data, resource.id(), data.resourceAmount(resource.id()) + resource.regenAmount());
+            return AbilityResourceApi.addAmount(data, resource.id(), resource.regenAmount());
         }
 
         int regenDelay = data.resourceRegenDelay(resource.id());
@@ -94,7 +94,7 @@ public final class AbilityResourceRuntime {
             return data.withResourceRegenDelay(resource.id(), regenDelay - 1);
         }
 
-        AbilityData updatedData = AbilityResourceApi.withAmount(data, resource.id(), data.resourceAmount(resource.id()) + resource.regenAmount());
+        AbilityData updatedData = AbilityResourceApi.addAmount(data, resource.id(), resource.regenAmount());
         int nextAmount = updatedData.resourceAmount(resource.id());
         return updatedData.withResourceRegenDelay(
                 resource.id(),
