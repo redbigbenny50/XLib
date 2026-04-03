@@ -6,6 +6,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 ## Documentation
 
+- `LICENSE`
+  Public repository license file. XLib is currently distributed as `All Rights Reserved`.
+
 - `README.md`
   Short project overview for the repo root.
 

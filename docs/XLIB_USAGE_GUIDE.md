@@ -8,6 +8,8 @@ Runtime `logs/` output from local dev/game runs is also intentionally excluded f
 
 Maintainers can mirror this docs set into the separate GitHub wiki repository with `tools/Sync-GitHubWiki.ps1` once the GitHub wiki has been bootstrapped with its first page in the web UI.
 
+XLib's repository license is `All Rights Reserved`. This documentation describes the API surface and runtime behavior, but it does not grant reuse or redistribution rights.
+
 ## Start Here
 
 1. [Getting Started](wiki/Getting-Started.md)

@@ -2,7 +2,7 @@
 
 XLib is a NeoForge `1.21.1` framework mod for combat, progression, and source-tracked unlock systems.
 
-It is meant to be a reusable library for addon/content mods, not a standalone gameplay-content pack.
+It is architected as a framework mod for addon/content mods, not a standalone gameplay-content pack.
 
 ## What It Provides
 
@@ -86,6 +86,12 @@ XLib includes `/xlib` admin/debug surfaces for:
 - Mod ID: `xlib`
 - Display name: `XLib`
 - Maven group: `com.whatxe.xlib`
+
+## License
+
+XLib is released as `All Rights Reserved`.
+
+No permission is granted to copy, modify, redistribute, sublicense, or create derivative works from this repository or its compiled artifacts without prior written permission from the copyright holder. See [LICENSE](LICENSE).
 
 ## Notes
 
