@@ -72,6 +72,8 @@ XLib includes `/xlib` admin/debug surfaces for:
   Topic pages for getting started, combat systems, unlock systems, progression, and testing.
 - `docs/CODEBASE_MAP.md`
   Internal subsystem map for contributors and future maintenance.
+- `tools/Sync-GitHubWiki.ps1`
+  Maintainer helper that exports `docs/` into the separate GitHub wiki layout and can push it once the GitHub wiki has been bootstrapped.
 
 ## Development
 

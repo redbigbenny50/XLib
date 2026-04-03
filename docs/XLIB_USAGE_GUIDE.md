@@ -6,6 +6,8 @@ Use [README.md](../README.md) for the short repository overview. Use [CODEBASE_M
 
 Runtime `logs/` output from local dev/game runs is also intentionally excluded from the published repo.
 
+Maintainers can mirror this docs set into the separate GitHub wiki repository with `tools/Sync-GitHubWiki.ps1` once the GitHub wiki has been bootstrapped with its first page in the web UI.
+
 ## Start Here
 
 1. [Getting Started](wiki/Getting-Started.md)
