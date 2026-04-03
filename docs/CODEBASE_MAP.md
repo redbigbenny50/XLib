@@ -1,6 +1,6 @@
 # XLib Codebase Map
 
-This file is an internal map of how the mod is organized today. It is meant to help future Codex sessions and human contributors understand where systems live before making changes.
+This file is an internal map of how the mod is organized today. It is meant to help future contributors understand where systems live before making changes.
 
 Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` as the public wiki home. Use `docs/wiki/` for topic pages. Use this file when you need the actual subsystem/file map.
 
