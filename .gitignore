@@ -22,5 +22,9 @@ eclipse
 run
 runs
 run-data
+logs
 
 repo
+
+# local maintainer logs
+CODEX_ACTIVITY_LOG.md
