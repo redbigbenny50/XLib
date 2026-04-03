@@ -36,6 +36,20 @@ AbilityDefinition.builder(ironBreakerId, AbilityIcon.ofTexture(iconId))
 
 XLib checks the balance before activation and deducts the cost atomically on success.
 
+## Exact Fractional Resources
+
+XLib resources now support exact fractional values for slow drains and gradual refills.
+
+Useful APIs:
+
+- `AbilityResourceApi.getExact(...)`
+- `AbilityResourceApi.setExact(...)`
+- `AbilityResourceApi.addExact(...)`
+- `AbilityResourceBehaviors.decayExact(...)`
+- `AbilityResourceBehaviors.refillOverTimeExactWhen(...)`
+
+That means gauges can decay at rates like `0.02` or `0.05` per tick without addon authors having to hand-roll their own fixed-point storage.
+
 ## Charge-Release Abilities
 
 For hold-to-charge and release-style abilities, use `chargeRelease(...)` instead of hand-writing a custom start/ticker/end trio each time.

@@ -27,6 +27,7 @@ public final class AbilityCombatTracker {
                 target.getUUID(),
                 new RecentAbilityHit(player.getUUID(), abilityId, target.level().getGameTime() + ttlTicks)
         );
+        ComboChainApi.onHitConfirm(player, abilityId);
     }
 
     public static Optional<ResourceLocation> recentKillingAbility(ServerPlayer player, LivingEntity target) {

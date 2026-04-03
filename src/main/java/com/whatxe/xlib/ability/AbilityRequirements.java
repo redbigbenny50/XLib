@@ -1,5 +1,7 @@
 package com.whatxe.xlib.ability;
 
+import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.combat.CombatMarkState;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -88,6 +90,14 @@ public final class AbilityRequirements {
         return predicate(
                 () -> Component.translatable("message.xlib.requirement_resource", amount, displayResourceName(resourceId)),
                 (player, data) -> data.resourceAmount(resourceId) >= amount
+        );
+    }
+
+    public static AbilityRequirement resourceAtLeastExact(ResourceLocation resourceId, double amount) {
+        Objects.requireNonNull(resourceId, "resourceId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_resource_exact", amount, displayResourceName(resourceId)),
+                (player, data) -> data.resourceAmountExact(resourceId) + 1.0E-9D >= amount
         );
     }
 
@@ -206,6 +216,42 @@ public final class AbilityRequirements {
                 () -> Component.translatable("message.xlib.requirement_no_status_effect", displayReadableId(effectId)),
                 (player, data) -> player != null && player.getActiveEffects().stream()
                         .noneMatch(activeEffect -> effectId.equals(BuiltInRegistries.MOB_EFFECT.getKey(activeEffect.getEffect().value())))
+        );
+    }
+
+    public static AbilityRequirement markActive(ResourceLocation markId) {
+        Objects.requireNonNull(markId, "markId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_mark_active", displayReadableId(markId)),
+                (player, data) -> player != null && ModAttachments.getMarks(player).has(markId)
+        );
+    }
+
+    public static AbilityRequirement markStacksAtLeast(ResourceLocation markId, int minimumStacks) {
+        Objects.requireNonNull(markId, "markId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_mark_stacks", displayReadableId(markId), minimumStacks),
+                (player, data) -> {
+                    if (player == null) {
+                        return false;
+                    }
+                    CombatMarkState state = ModAttachments.getMarks(player).state(markId);
+                    return state != null && state.stacks() >= minimumStacks;
+                }
+        );
+    }
+
+    public static AbilityRequirement markValueAtLeast(ResourceLocation markId, double minimumValue) {
+        Objects.requireNonNull(markId, "markId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_mark_value", displayReadableId(markId), minimumValue),
+                (player, data) -> {
+                    if (player == null) {
+                        return false;
+                    }
+                    CombatMarkState state = ModAttachments.getMarks(player).state(markId);
+                    return state != null && state.value() >= minimumValue;
+                }
         );
     }
 

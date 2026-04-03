@@ -134,6 +134,7 @@ public final class AbilityRuntime {
         } else if (definition.cooldownPolicy() == AbilityCooldownPolicy.ON_END && definition.cooldownTicks() > 0) {
             updatedData = updatedData.withCooldown(definition.id(), definition.cooldownTicks());
         }
+        updatedData = ComboChainApi.applyEnd(player, updatedData, definition.id());
 
         definition.playSounds(player, reason.usesInterruptSound() ? AbilitySoundTrigger.INTERRUPT : AbilitySoundTrigger.END);
         ModeApi.postModeEnded(player, definition, previousData, updatedData, reason);
@@ -161,6 +162,11 @@ public final class AbilityRuntime {
                 AbilityUseResult endResult = endAbility(player, updatedData, ability, AbilityEndReason.REQUIREMENT_INVALIDATED);
                 updatedData = endResult.data();
                 player.displayClientMessage(endResult.feedback() != null ? endResult.feedback() : activeRequirementFailure.get(), true);
+                continue;
+            }
+
+            updatedData = ModeApi.applyUpkeep(player, updatedData, ability);
+            if (!updatedData.isModeActive(activeAbilityId)) {
                 continue;
             }
 
@@ -297,8 +303,7 @@ public final class AbilityRuntime {
             }
 
             AbilityResourceDefinition resource = maybeResource.get();
-            int nextAmount = Math.max(0, updatedData.resourceAmount(resource.id()) - cost.amount());
-            updatedData = AbilityResourceApi.withAmount(updatedData, resource.id(), nextAmount);
+            updatedData = AbilityResourceApi.addAmountExact(updatedData, resource.id(), -cost.amount());
             if (resource.regenAmount() > 0) {
                 updatedData = updatedData.withResourceRegenDelay(resource.id(), resource.regenIntervalTicks());
             }

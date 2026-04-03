@@ -198,10 +198,10 @@ public final class AbilityApi {
         }
 
         for (AbilityResourceDefinition resource : RESOURCES.values()) {
-            int amount = data.resources().containsKey(resource.id())
-                    ? Math.min(resource.totalCapacity(), data.resourceAmount(resource.id()))
+            double amount = data.resources().containsKey(resource.id())
+                    ? Math.min(resource.totalCapacity(), data.resourceAmountExact(resource.id()))
                     : resource.startingAmount();
-            sanitized = sanitized.withResourceAmount(resource.id(), amount);
+            sanitized = sanitized.withResourceAmountExact(resource.id(), amount);
             sanitized = sanitized.withResourceRegenDelay(resource.id(), data.resourceRegenDelay(resource.id()));
             sanitized = sanitized.withResourceDecayDelay(resource.id(), data.resourceDecayDelay(resource.id()));
         }

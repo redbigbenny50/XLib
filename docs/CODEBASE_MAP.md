@@ -50,6 +50,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   Registers and exposes:
   - `player_ability_data` via `AbilityData`
   - `player_upgrade_progress` via `UpgradeProgressData`
+  - `living_combat_marks` via `CombatMarkData`
   Also contains the embedded-connection sync workaround used for GameTests.
 
 ## Ability / Combat Core
@@ -67,7 +68,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - per-cycle used-mode history for stance rotation groups
   - combo windows and combo slot overrides
   - charges
-  - resources and regen/decay delays
+  - resources with exact fractional progress plus regen/decay delays
   - source-tracked grants and activation blocks
   - managed grant source ids
 
@@ -92,10 +93,30 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   Base slot assignment, per-mode preset assignment, and resolved slot lookup after combo overrides, authored mode overlays, and active mode preset fallback.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityRequirements.java`
-  Built-in assign/use/render requirement helpers. Requirement labels resolve lazily so later-registered abilities, passives, and modes still display readable names in UI and failure feedback instead of raw ids.
+  Built-in assign/use/render requirement helpers. Includes exact-resource and combat-mark requirements, and requirement labels resolve lazily so later-registered abilities, passives, and modes still display readable names in UI and failure feedback instead of raw ids.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityCombatTracker.java`
-  Recent ability-hit attribution helper for systems that need to know which ability caused a later kill.
+  Recent ability-hit attribution helper for systems that need to know which ability caused a later kill. Also kicks off hit-confirm combo triggers when addon code records a landed ability hit.
+
+## Combat Helpers
+
+- `src/main/java/com/whatxe/xlib/combat/CombatMarkDefinition.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatMarkData.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatMarkState.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatMarkApi.java`
+  Custom author-defined timed combat marks/debuffs. Supports duration, stacks, value payloads, optional source ids, living-entity attachment storage, and expire/remove/apply events.
+
+- `src/main/java/com/whatxe/xlib/api/event/XLibCombatMarkEvent.java`
+  Public lifecycle events for combat marks: applied, refreshed, expired, removed.
+
+- `src/main/java/com/whatxe/xlib/combat/CombatTargetingProfile.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatTargetingMode.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatTargetingApi.java`
+- `src/main/java/com/whatxe/xlib/combat/CombatGeometry.java`
+  Reusable targeting and geometry helpers for aimed melee/circle/cone selection, line-of-sight-aware hit resolution, teleport-behind, and knockback/launch movement helpers.
+
+- `src/main/java/com/whatxe/xlib/api/event/XLibCombatHitEvent.java`
+  Mutable hit-resolution event surface for addon-defined dodge/block/parry outcomes before damage is applied.
 
 ## Resources
 
@@ -103,21 +124,22 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   Persistent combat-bar resource definition and behavior hooks.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityResourceApi.java`
-  Read/write helpers for player resource amounts.
+  Read/write helpers for player resource amounts, including exact fractional values.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityResourceRuntime.java`
   Tick/eat/hit/kill resource behavior execution.
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityResourceBehaviors.java`
-  Common resource behavior helpers.
+  Common resource behavior helpers, including exact fractional decay/refill variants.
 
 ## Modes / Forms / Combos
 
 - `src/main/java/com/whatxe/xlib/ability/ModeDefinition.java`
   Declarative stance/form profile:
   - explicit `stackable()` / overlay intent
-  - cycle-group membership and reset-on-activate triggers
+  - cycle-group membership, ordered-cycle step enforcement, and reset-on-activate triggers
   - cooldown tick-rate multipliers while active
+  - optional upkeep helpers for hp drain / minimum-health floors / per-tick resource deltas
   - exclusivity
   - blocked-by modes
   - transform-parent modes
@@ -125,13 +147,13 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - bundled rewards/blocks while active
 
 - `src/main/java/com/whatxe/xlib/ability/ModeApi.java`
-  Mode registry, active overlay resolution, bundled snapshot generation, cycle-history/reset helpers, aggregated cooldown multiplier lookup, and lifecycle event emission with specific end reasons.
+  Mode registry, active overlay resolution, bundled snapshot generation, ordered-cycle validation, cycle-history/reset helpers, upkeep application, aggregated cooldown multiplier lookup, and lifecycle event emission with specific end reasons.
 
 - `src/main/java/com/whatxe/xlib/ability/ComboChainDefinition.java`
-  Trigger ability -> follow-up ability combo definition, including optional branch conditions that can swap to different follow-up abilities from the same trigger.
+  Trigger ability -> follow-up ability combo definition, including optional branch conditions that can swap to different follow-up abilities from the same trigger, plus trigger timing selection (`activation`, `hit confirm`, `end`).
 
 - `src/main/java/com/whatxe/xlib/ability/ComboChainApi.java`
-  Combo registry and combo window/override application and ticking. Supports both the legacy trigger-only activation path and the player-aware branching path used at runtime.
+  Combo registry and combo window/override application and ticking. Supports activation-triggered combos, hit-confirm/end-triggered combos, remembered activation slots for later slot transforms, and the older trigger-only API shape.
 
 - `src/main/java/com/whatxe/xlib/api/event/XLibModeEvent.java`
   Mode lifecycle event surface with specific end reasons for player toggle-off, duration expiry, requirement invalidation, force-end, transform replacement, and exclusive-mode replacement.

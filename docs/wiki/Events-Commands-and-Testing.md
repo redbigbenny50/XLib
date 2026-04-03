@@ -8,13 +8,15 @@ Useful event surfaces include:
 
 - `XLibAbilityActivationEvent`
 - `XLibModeEvent.Ended` with explicit end reasons
+- `XLibCombatHitEvent`
+- `XLibCombatMarkEvent`
 - `XLibGrantedItemEvent.Reclaimed`
 - `XLibGrantedItemEvent.Removed`
 - `XLibRecipePermissionEvent`
 - `XLibUpgradeRewardProjectionEvent.Projected`
 - `XLibUpgradeRewardProjectionEvent.Cleared`
 
-These exist so integrations do not need to poll attachments for recipe access changes, granted-item cleanup, or projected progression rewards.
+These exist so integrations do not need to poll attachments for recipe access changes, combat-mark lifecycles, dodge/parry/block hit resolution, granted-item cleanup, or projected progression rewards.
 
 ## Admin and Debug Commands
 

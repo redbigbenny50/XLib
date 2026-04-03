@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,9 @@ class ModeApiTest {
     private static final ResourceLocation GRANTED_ITEM_ID = id("granted_item");
     private static final ResourceLocation RECIPE_ID = id("recipe");
     private static final ResourceLocation BLOCKED_ABILITY_ID = id("blocked_ability");
+    private static final ResourceLocation ORDERED_GROUP_ID = id("ordered_group");
+    private static final ResourceLocation ORDERED_FIRST_MODE_ID = id("ordered_first_mode");
+    private static final ResourceLocation ORDERED_SECOND_MODE_ID = id("ordered_second_mode");
 
     @Test
     void higherPriorityModeOverlayWinsWhenMultipleModesShareTheSameSlot() {
@@ -74,10 +78,36 @@ class ModeApiTest {
         }
     }
 
+    @Test
+    void orderedCycleModesRequireTheirExpectedStep() {
+        unregisterFixtures();
+        try {
+            ModeApi.registerMode(ModeDefinition.builder(ORDERED_FIRST_MODE_ID)
+                    .orderedCycle(ORDERED_GROUP_ID, 1)
+                    .build());
+            ModeApi.registerMode(ModeDefinition.builder(ORDERED_SECOND_MODE_ID)
+                    .orderedCycle(ORDERED_GROUP_ID, 2)
+                    .build());
+
+            AbilityDefinition secondAbility = AbilityDefinition.builder(ORDERED_SECOND_MODE_ID, AbilityIcon.ofTexture(id("ordered_second_icon")))
+                    .action((player, data) -> AbilityUseResult.success(data, Component.empty()))
+                    .build();
+
+            assertTrue(ModeApi.firstActivationFailure(null, secondAbility, AbilityData.empty()).isPresent());
+
+            AbilityData progressedData = AbilityData.empty().withModeUsedInCycle(ORDERED_GROUP_ID, ORDERED_FIRST_MODE_ID);
+            assertTrue(ModeApi.firstActivationFailure(null, secondAbility, progressedData).isEmpty());
+        } finally {
+            unregisterFixtures();
+        }
+    }
+
     private static void unregisterFixtures() {
         ModeApi.unregisterMode(LOW_PRIORITY_MODE_ID);
         ModeApi.unregisterMode(HIGH_PRIORITY_MODE_ID);
         ModeApi.unregisterMode(BUNDLE_MODE_ID);
+        ModeApi.unregisterMode(ORDERED_FIRST_MODE_ID);
+        ModeApi.unregisterMode(ORDERED_SECOND_MODE_ID);
     }
 
     private static ResourceLocation id(String path) {
