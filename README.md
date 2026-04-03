@@ -56,12 +56,6 @@ XLib includes `/xlib` admin/debug surfaces for:
 - progression
 - debug / export / diff / counters
 
-## Dev Notes
-
-- IDE/dev runs include granted-item fixtures only.
-- XLib no longer auto-restricts `minecraft:golden_apple` or `minecraft:diamond_sword`.
-- If you want recipe-lock testing, create it explicitly with `/xlib recipes restrict ...` or addon/datapack definitions.
-
 ## Documentation
 
 - `README.md`
