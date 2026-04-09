@@ -18,15 +18,6 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 - `README.md`
   Short project overview for the repo root.
 
-- `ROADMAP.md`
-  Dedicated summary of the currently bundled future-direction scope for planned XLib expansion work.
-
-- `ROADMAP_2.md`
-  Follow-on planning document covering the second bundled framework pass after the first roadmap was completed, especially richer slot/widget composition plus compatibility/migration work.
-
-- `ROADMAP_3.md`
-  Third bundled planning document covering higher-level authored assets, richer built-in UX, and optional tooling after the runtime/container/profile foundations from the first two roadmaps were completed.
-
 - `docs/XLIB_USAGE_GUIDE.md`
   Public wiki home for addon authors, GitHub release readers, and CurseForge readers.
 

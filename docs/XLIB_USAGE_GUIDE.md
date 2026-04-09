@@ -124,7 +124,7 @@ Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you w
 ## Recommended Reading Order
 
 - Read [Getting Started](wiki/Getting-Started.md) first if you are new to XLib.
-- Read [System Overview and Status](wiki/System-Overview-and-Status.md) next when you want the shipped architecture and roadmap snapshot before drilling into one API surface.
+- Read [System Overview and Status](wiki/System-Overview-and-Status.md) next when you want the shipped architecture and whole-library status before drilling into one API surface.
 - Read [Abilities and Loadouts](wiki/Abilities-and-Loadouts.md) and [Modes and Combos](wiki/Modes-and-Combos.md) next if you are building a combat addon.
 - Read [Grants, Items, and Recipes](wiki/Grants-Items-and-Recipes.md) when your addon needs source-tracked content unlocks or managed items.
 - Read [Progression](wiki/Progression.md) only if you want trees, points, counters, or node rewards.
@@ -136,7 +136,7 @@ Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you w
 - Persistent profile groups, required-choice onboarding, reset history, and the replaceable selection-screen path now ship, but XLib still does not provide a richer built-in widget/composition layer for heavily customized profile-selection visuals.
 - Control profiles can route through addon-owned key mappings, but XLib still does not ship a dedicated in-framework bind-editor surface beyond normal Controls registration.
 - The built-in progression screen now supports list mode plus an icon-node tree skill-tree view, but it is still a bounded menu view rather than a free-pan or zoomable canvas/editor.
-- The next higher-level authored-asset and optional-tooling planning pass now lives in `ROADMAP_3.md`.
+- The remaining gaps are now mostly higher-level authoring UX and optional tooling, not missing combat/profile/container foundations.
 - The generalized state-control layer now covers modes plus source-tracked state policies, generic state flags, detector-driven reactive windows, and staged sequence authoring, but XLib still does not ship a freeform editor for broader non-mode state graphs.
 - The neutral catalog metadata surface now spans abilities, passives, modes, granted items, restricted recipe content, upgrade tracks, and upgrade nodes. Built-in client presentation now covers ability page/group/family scoping plus gameplay-focused progression inspection, while passives and active modes rely on command/debug discoverability and mode/item/recipe catalog browsing still leans more on APIs and command inspection than on dedicated client UI.
 - XLib now ships optional cue-adapter and routing APIs, but it still does not bundle a concrete third-party animation backend implementation in-tree.

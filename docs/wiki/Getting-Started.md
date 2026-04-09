@@ -9,7 +9,7 @@ This page is the quickest path from "I added XLib as a dependency" to "my addon 
 - Slot assignment answers which combat slot an owned ability is currently equipped to.
 - Most XLib systems are source-tracked, so grants should use stable source ids such as `yourmod:class/saiyan` or `yourmod:quest/dragon_clear`.
 
-If you want the full shipped-systems tour before building against one specific API, read [System Overview and Status](System-Overview-and-Status.md) next. It summarizes the current runtime loop, client surfaces, and which roadmap checkpoints are already in the repo.
+If you want the full shipped-systems tour before building against one specific API, read [System Overview and Status](System-Overview-and-Status.md) next. It summarizes the current runtime loop, client surfaces, and the major systems that already ship in the repo.
 
 ## Minimal Ability Flow
 

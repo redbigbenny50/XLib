@@ -92,6 +92,7 @@ function Write-WikiFiles {
     $wikiSourceDir = Join-Path $RepoRoot "docs/wiki"
     $pageOrder = @(
         "Getting-Started.md",
+        "System-Overview-and-Status.md",
         "Abilities-and-Loadouts.md",
         "Modes-and-Combos.md",
         "Grants-Items-and-Recipes.md",
@@ -119,6 +120,7 @@ function Write-WikiFiles {
         "",
         "- [Home](Home)",
         "- [Getting Started](Getting-Started)",
+        "- [System Overview and Status](System-Overview-and-Status)",
         "- [Abilities and Loadouts](Abilities-and-Loadouts)",
         "- [Modes and Combos](Modes-and-Combos)",
         "- [Grants, Items, and Recipes](Grants-Items-and-Recipes)",
