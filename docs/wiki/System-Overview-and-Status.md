@@ -50,7 +50,7 @@ This page is the quickest "what already exists today?" summary for the whole lib
 4. Dynamic grant sync pulls from items, contextual providers, active modes, and unlocked progression sources into the same source-tracked ownership model.
 5. Client menus and the combat HUD read the synced attachments, while activation, assignment, and unlock requests travel back to the server through payloads.
 
-## Roadmap Snapshot
+## Foundation Status
 
 - Completed foundation: neutral `family`, `group`, `page`, and `tag` metadata is now live for abilities, passives, modes, granted items, restricted recipe content, upgrade tracks, and upgrade nodes.
 - Completed foundation: requirement composition and adapter helpers now let addon authors reuse one `AbilityRequirement` definition across ability, contextual-grant, and consume-rule authoring.
@@ -59,15 +59,15 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Completed foundation: the built-in ability menu now has dedicated page/group/family presentation for large catalogs, and built-in ability/progression screens now respect addon-authored hidden/locked/available menu policies.
 - Completed foundation: built-in menus and the combat HUD now expose addon-defined presentation profiles, and the progression screen now ships list mode plus an icon-node tree skill-tree presentation style through a reusable layout planner.
 - Completed foundation: client UI replacement hooks now exist through `AbilityMenuScreenFactoryApi`, `ProgressionMenuScreenFactoryApi`, and `CombatHudRendererApi`, so addons can replace the built-in ability/progression screens or combat HUD instead of only recoloring them.
-- Completed foundation: Roadmap 2 Area 1 is now effectively covered, because the screen-factory layer now includes `AbilityMenuScreenFactory` / `ProgressionMenuScreenFactory` plus shared `AbilityMenuSessionStateApi` / `ProgressionMenuSessionStateApi` context handoff for custom screen navigation.
-- Completed foundation: Roadmap 2 Area 2 is now covered through `AbilitySlotReference`, `AbilityContainerState`, `AbilitySlotContainerDefinition`, and `AbilitySlotContainerApi`, so runtime state, payloads, combos, overlays, HUD rendering, and built-in ability-menu assignment all work against multi-container slot layouts instead of one fixed strip.
-- Completed foundation: Roadmap 2 Area 3 is now covered through `AbilityControlProfileApi`, `AbilityControlTrigger`, `AbilityControlAction`, `AbilityControlKeyMappingApi`, and `AbilityControlActionHandlerApi`, so addons can author container-specific default controls, expose optional Controls entries, and route custom input actions without forking the whole client pipeline.
+- Completed foundation: the screen-factory layer now includes `AbilityMenuScreenFactory` / `ProgressionMenuScreenFactory` plus shared `AbilityMenuSessionStateApi` / `ProgressionMenuSessionStateApi` context handoff for custom screen navigation.
+- Completed foundation: `AbilitySlotReference`, `AbilityContainerState`, `AbilitySlotContainerDefinition`, and `AbilitySlotContainerApi` now cover runtime state, payloads, combos, overlays, HUD rendering, and built-in ability-menu assignment against slot-aware layouts instead of one fixed strip.
+- Completed foundation: `AbilityControlProfileApi`, `AbilityControlTrigger`, `AbilityControlAction`, `AbilityControlKeyMappingApi`, and `AbilityControlActionHandlerApi` let addons author container-specific default controls, expose optional Controls entries, and route custom input actions without forking the whole client pipeline.
 - Completed foundation: addon-controlled loadout management and optional quick-switch hooks now exist through `AbilityLoadoutFeatureApi` plus `RegisterAbilityClientRenderersEvent.registerLoadoutQuickSwitchHandler(...)`, so addons can opt into those built-in affordances instead of forcing them on every integration.
-- Completed foundation: Roadmap 2 Area 4 is now covered through `ProfileGroupDefinition`, `ProfileDefinition`, and `ProfileApi`, so addons can author persistent profile groups, incompatibility rules, and projection into the existing grant/progression layers instead of hand-rolling separate identity-choice storage.
-- Completed foundation: Roadmap 2 Area 5 is now covered through `ProfileSelectionData`, `ProfileSelectionScreenFactoryApi`, `ClaimProfilePayload`, and the onboarding hooks in `ModPlayerEvents`, so XLib can now open a required selection flow on authored triggers and block ability/menu/progression access until a required choice is claimed.
-- Completed foundation: Roadmap 2 Area 6 is now covered through profile reset policy flags, `/xlib profiles ...` admin commands, selection-origin tracking, reset-history storage, and expanded debug/export sections for pending profile groups plus managed unlock sources.
-- Completed foundation: Roadmap 2 Area 7 is now covered through `AbilityContainerLayoutDefinition`, `AbilityContainerLayoutApi`, `AbilitySlotWidgetMetadata`, and `AbilitySlotLayoutPlanner`, so built-in HUD/menu surfaces can consume authored strip/grid/radial/categorized layouts, page tabs, grouped headers, and per-slot metadata without forcing full UI replacement.
-- Completed foundation: Roadmap 2 Area 8 is now covered through `AbilitySlotMigrationApi`, stricter payload validation in `ModPayloads`, explicit menu/profile lifecycle events, and expanded tests around layout registration, migration remapping, and play-protocol compatibility.
+- Completed foundation: `ProfileGroupDefinition`, `ProfileDefinition`, and `ProfileApi` let addons author persistent profile groups, incompatibility rules, and projection into the existing grant/progression layers instead of hand-rolling separate identity-choice storage.
+- Completed foundation: `ProfileSelectionData`, `ProfileSelectionScreenFactoryApi`, `ClaimProfilePayload`, and the onboarding hooks in `ModPlayerEvents` let XLib open a required selection flow on authored triggers and block ability/menu/progression access until a required choice is claimed.
+- Completed foundation: profile reset policy flags, `/xlib profiles ...` admin commands, selection-origin tracking, reset-history storage, and expanded debug/export sections now cover pending profile groups plus managed unlock sources.
+- Completed foundation: `AbilityContainerLayoutDefinition`, `AbilityContainerLayoutApi`, `AbilitySlotWidgetMetadata`, and `AbilitySlotLayoutPlanner` let built-in HUD/menu surfaces consume authored strip/grid/radial/categorized layouts, page tabs, grouped headers, and per-slot metadata without forcing full UI replacement.
+- Completed foundation: `AbilitySlotMigrationApi`, stricter payload validation in `ModPayloads`, explicit menu/profile lifecycle events, and expanded tests now cover layout registration, migration remapping, and play-protocol compatibility.
 - Completed foundation: backend-agnostic runtime cue hooks now exist through `XLibCueApi` and `XLibRuntimeCueEvent`, and the core runtime emits cues for activation, charge-release progress, hit-confirm, interruption, and mode state transitions.
 - Completed foundation: optional cue-adapter routing now exists through `XLibCueAdapterApi`, `XLibCueRouteProfileApi`, and `XLibCueSurface`, so body animation, model animation, and effect playback can be handled by separate addon integrations.
 - Completed foundation: generalized state policies now broaden the mode/form system with selector-based cooldown scaling plus lock/silence/suppression control that can be projected by modes or contextual systems.
@@ -77,7 +77,7 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Completed foundation: `SupportPackageApi`, `EntityRelationshipApi`, and `ControlledEntityApi` now cover ally-targeted bundle projection, persistent relationship ownership, and simple summon or minion control helpers.
 - Completed foundation: the optional progression layer now supports choice groups, explicit node or track locks, identity rewards, and identity-gated follow-up paths for stronger branch commitment and archetype progression.
 - Strong groundwork already exists for modes, source ownership, item-driven access, profile/onboarding state, recipe gating, progression, and UI.
-- The first bundled roadmap and all of Roadmap 2 are now implemented; follow-on work is now about higher-level authoring UX and optional tooling rather than missing slot/container/profile foundations.
+- The missing work is now mostly higher-level authoring UX and optional tooling rather than slot/container/profile foundations.
 
 ## Known Remaining Gaps
 
@@ -85,6 +85,6 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Control profiles can now route through addon-owned key mappings, but XLib still does not ship a separate in-framework bind-editor surface beyond normal Controls registration.
 - XLib now ships strong built-in ability-menu/HUD composition, but highly custom profile-selection visuals still work best as a full custom screen instead of as a richer reusable widget layer.
 - The built-in progression screen supports list mode plus an icon-node tree skill-tree view, but it is still a bounded menu surface rather than a free-pan or zoomable canvas.
-- Follow-on planning for those higher-level UX/tooling gaps now lives in `ROADMAP_3.md`.
+- Follow-on work mainly centers on higher-level UX and tooling, not missing runtime foundations.
 
-This page should stay aligned with `ROADMAP.md` and `docs/CODEBASE_MAP.md` whenever new systems land.
+This page should stay aligned with `README.md` and `docs/CODEBASE_MAP.md` whenever new systems land.

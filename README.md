@@ -56,6 +56,15 @@ XLib ships reusable APIs and runtime systems for:
 - icon-driven progression menu with list and tree views
 - configurable resource HUD rendering
 
+## Shipped Highlights
+
+- Addon-defined metadata now spans abilities, passives, modes, granted items, restricted recipe content, upgrade tracks, and upgrade nodes, and the built-in menus can search and scope that data directly.
+- The runtime now ships generalized state policies, source-tracked state flags, detector-driven reactive windows, and staged sequence abilities for richer combat/state authoring without one-off storage layers.
+- XLib now includes persistent profile groups, required onboarding selection flows, identity and grant-bundle projection, artifact unlocks, and profile-backed progression starting nodes.
+- Addons can keep the built-in HUD and menus while authoring primary-bar layouts, control profiles, player-rebindable key mappings, optional quick-switch behavior, and per-resource HUD placement rules.
+- The built-in client layer now supports replaceable ability/progression/profile screens, replaceable combat HUD renderers, and shared session-state handoff for custom navigation.
+- Progression now includes list/tree built-in presentations, choice-group specialization, explicit node/track locks, identity rewards, and identity-gated follow-up paths.
+
 ## Commands
 
 XLib includes `/xlib` admin/debug surfaces for:
@@ -71,12 +80,6 @@ XLib includes `/xlib` admin/debug surfaces for:
 
 - `README.md`
   Top-level project summary.
-- `ROADMAP.md`
-  Dedicated summary of the currently discussed future direction and planned expansion areas.
-- `ROADMAP_2.md`
-  Second bundled planning pass covering the now-landed slot-composition, profile/onboarding, and compatibility/migration expansion work.
-- `ROADMAP_3.md`
-  Third bundled planning pass covering the next higher-level authored-asset, built-in UX, and optional tooling goals.
 - `docs/XLIB_USAGE_GUIDE.md`
   Wiki home for addon authors and release-facing documentation.
 - `docs/wiki/`
