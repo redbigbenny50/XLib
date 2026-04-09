@@ -7,6 +7,7 @@ import com.whatxe.xlib.ability.AbilityCombatTracker;
 import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityGrantApi;
 import com.whatxe.xlib.ability.GrantedItemGrantApi;
+import com.whatxe.xlib.ability.IdentityApi;
 import com.whatxe.xlib.ability.PassiveGrantApi;
 import com.whatxe.xlib.ability.RecipePermissionApi;
 import com.whatxe.xlib.attachment.ModAttachments;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -82,6 +84,26 @@ public final class UpgradeApi {
         return List.copyOf(TRACKS.values());
     }
 
+    public static Collection<UpgradeTrackDefinition> tracksInFamily(ResourceLocation familyId) {
+        ResourceLocation resolvedFamilyId = java.util.Objects.requireNonNull(familyId, "familyId");
+        return filterTracks(track -> track.familyId().filter(resolvedFamilyId::equals).isPresent());
+    }
+
+    public static Collection<UpgradeTrackDefinition> tracksInGroup(ResourceLocation groupId) {
+        ResourceLocation resolvedGroupId = java.util.Objects.requireNonNull(groupId, "groupId");
+        return filterTracks(track -> track.groupId().filter(resolvedGroupId::equals).isPresent());
+    }
+
+    public static Collection<UpgradeTrackDefinition> tracksOnPage(ResourceLocation pageId) {
+        ResourceLocation resolvedPageId = java.util.Objects.requireNonNull(pageId, "pageId");
+        return filterTracks(track -> track.pageId().filter(resolvedPageId::equals).isPresent());
+    }
+
+    public static Collection<UpgradeTrackDefinition> tracksWithTag(ResourceLocation tagId) {
+        ResourceLocation resolvedTagId = java.util.Objects.requireNonNull(tagId, "tagId");
+        return filterTracks(track -> track.hasTag(resolvedTagId));
+    }
+
     public static List<UpgradeNodeDefinition> nodesInTrack(ResourceLocation trackId) {
         List<UpgradeNodeDefinition> nodes = new ArrayList<>();
         for (UpgradeNodeDefinition node : allNodes()) {
@@ -122,6 +144,31 @@ public final class UpgradeApi {
 
     public static Collection<UpgradeNodeDefinition> allNodes() {
         return List.copyOf(NODES.values());
+    }
+
+    public static Collection<UpgradeNodeDefinition> nodesInFamily(ResourceLocation familyId) {
+        ResourceLocation resolvedFamilyId = java.util.Objects.requireNonNull(familyId, "familyId");
+        return filterNodes(node -> node.familyId().filter(resolvedFamilyId::equals).isPresent());
+    }
+
+    public static Collection<UpgradeNodeDefinition> nodesInGroup(ResourceLocation groupId) {
+        ResourceLocation resolvedGroupId = java.util.Objects.requireNonNull(groupId, "groupId");
+        return filterNodes(node -> node.groupId().filter(resolvedGroupId::equals).isPresent());
+    }
+
+    public static Collection<UpgradeNodeDefinition> nodesOnPage(ResourceLocation pageId) {
+        ResourceLocation resolvedPageId = java.util.Objects.requireNonNull(pageId, "pageId");
+        return filterNodes(node -> node.pageId().filter(resolvedPageId::equals).isPresent());
+    }
+
+    public static Collection<UpgradeNodeDefinition> nodesWithTag(ResourceLocation tagId) {
+        ResourceLocation resolvedTagId = java.util.Objects.requireNonNull(tagId, "tagId");
+        return filterNodes(node -> node.hasTag(resolvedTagId));
+    }
+
+    public static Collection<UpgradeNodeDefinition> nodesInChoiceGroup(ResourceLocation choiceGroupId) {
+        ResourceLocation resolvedChoiceGroupId = java.util.Objects.requireNonNull(choiceGroupId, "choiceGroupId");
+        return filterNodes(node -> node.choiceGroupId().filter(resolvedChoiceGroupId::equals).isPresent());
     }
 
     public static UpgradeConsumeRule registerConsumeRule(UpgradeConsumeRule rule) {
@@ -173,6 +220,9 @@ public final class UpgradeApi {
                 UpgradeNodeDefinition node = findNode(nodeId).orElse(null);
                 if (node == null || !sanitized.unlockedNodes().containsAll(node.requiredNodes())) {
                     sanitized = sanitized.withUnlockedNode(nodeId, false);
+                    for (ResourceLocation sourceId : Set.copyOf(sanitized.unlockSourcesFor(nodeId))) {
+                        sanitized = sanitized.withUnlockedNodeSource(nodeId, sourceId, false);
+                    }
                     changed = true;
                 }
             }
@@ -208,6 +258,12 @@ public final class UpgradeApi {
         return Set.copyOf(activeSources);
     }
 
+    public static Set<ResourceLocation> activeManagedUnlockSources(UpgradeProgressData data) {
+        Set<ResourceLocation> activeSources = new LinkedHashSet<>();
+        data.managedUnlockSources().values().forEach(activeSources::addAll);
+        return Set.copyOf(activeSources);
+    }
+
     public static Set<ResourceLocation> unlockedNodes(Player player) {
         return Set.copyOf(get(player).unlockedNodes());
     }
@@ -239,8 +295,42 @@ public final class UpgradeApi {
             UpgradeProgressData data,
             UpgradeNodeDefinition node
     ) {
+        Optional<Component> structuralFailure = firstStructuralUnlockFailure(data, node);
+        if (structuralFailure.isPresent()) {
+            return structuralFailure;
+        }
+
+        return UpgradeRequirements.firstFailure(player, data, node.requirements());
+    }
+
+    public static Optional<Component> firstStructuralUnlockFailure(
+            UpgradeProgressData data,
+            UpgradeNodeDefinition node
+    ) {
         if (data.hasUnlockedNode(node.id())) {
             return Optional.of(Component.translatable("message.xlib.upgrade.node_already_unlocked", node.displayName()));
+        }
+
+        Optional<NodeConflict> blockingNode = blockingNode(data, node);
+        if (blockingNode.isPresent()) {
+            Component blockingNodeName = UpgradeRequirements.displayNodeName(blockingNode.get().nodeId());
+            return switch (blockingNode.get().kind()) {
+                case CHOICE_GROUP -> Optional.of(Component.translatable(
+                        "message.xlib.upgrade.choice_locked",
+                        node.displayName(),
+                        blockingNodeName
+                ));
+                case NODE_LOCK -> Optional.of(Component.translatable(
+                        "message.xlib.upgrade.node_locked_by_node",
+                        node.displayName(),
+                        blockingNodeName
+                ));
+                case TRACK_LOCK -> Optional.of(Component.translatable(
+                        "message.xlib.upgrade.track_locked_by_node",
+                        node.displayName(),
+                        blockingNodeName
+                ));
+            };
         }
 
         if (node.trackId() != null) {
@@ -278,7 +368,7 @@ public final class UpgradeApi {
             }
         }
 
-        return UpgradeRequirements.firstFailure(player, data, node.requirements());
+        return Optional.empty();
     }
 
     public static boolean unlockNode(ServerPlayer player, ResourceLocation nodeId) {
@@ -314,6 +404,28 @@ public final class UpgradeApi {
         set(player, currentData.withUnlockedNode(nodeId, false));
         syncServerState(player, currentData);
         return true;
+    }
+
+    public static void syncSourceNodes(ServerPlayer player, ResourceLocation sourceId, Collection<ResourceLocation> nodeIds) {
+        UpgradeProgressData currentData = get(player);
+        Set<ResourceLocation> desiredNodeIds = nodeIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .filter(nodeId -> findNode(nodeId).isPresent())
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        UpgradeProgressData updatedData = currentData;
+        for (ResourceLocation nodeId : currentData.unlockedNodes()) {
+            if (currentData.unlockSourcesFor(nodeId).contains(sourceId) && !desiredNodeIds.contains(nodeId)) {
+                updatedData = updatedData.withUnlockedNodeSource(nodeId, sourceId, false);
+            }
+        }
+        for (ResourceLocation nodeId : desiredNodeIds) {
+            updatedData = updatedData.withUnlockedNodeSource(nodeId, sourceId, true);
+        }
+        updatedData = sanitizeData(updatedData);
+        if (!updatedData.equals(currentData)) {
+            set(player, updatedData);
+            syncServerState(player, currentData);
+        }
     }
 
     public static boolean revokeNodesGrantingAbility(ServerPlayer player, ResourceLocation abilityId) {
@@ -434,6 +546,7 @@ public final class UpgradeApi {
         PassiveGrantApi.syncSourcePassives(player, node.sourceId(), rewards.passives());
         GrantedItemGrantApi.syncSourceItems(player, node.sourceId(), rewards.grantedItems());
         RecipePermissionApi.syncSourcePermissions(player, node.sourceId(), rewards.recipePermissions());
+        IdentityApi.grantIdentities(player, rewards.identities(), node.sourceId());
         NeoForge.EVENT_BUS.post(new XLibUpgradeRewardProjectionEvent.Projected(player, node, node.sourceId(), rewards));
     }
 
@@ -442,6 +555,7 @@ public final class UpgradeApi {
         PassiveGrantApi.syncSourcePassives(player, sourceId, List.of());
         GrantedItemGrantApi.syncSourceItems(player, sourceId, List.of());
         RecipePermissionApi.syncSourcePermissions(player, sourceId, List.of());
+        IdentityApi.clearSourceIdentities(player, sourceId);
         NeoForge.EVENT_BUS.post(new XLibUpgradeRewardProjectionEvent.Cleared(player, node, sourceId, node.rewards()));
     }
 
@@ -470,7 +584,8 @@ public final class UpgradeApi {
     }
 
     public static boolean isTrackBlocked(UpgradeProgressData data, ResourceLocation trackId) {
-        return blockingTrack(data, trackId).isPresent();
+        return blockingTrack(data, trackId).isPresent()
+                || allNodes().stream().anyMatch(node -> data.hasUnlockedNode(node.id()) && node.lockedTracks().contains(trackId));
     }
 
     public static boolean trackHasUnlockedNodes(UpgradeProgressData data, ResourceLocation trackId) {
@@ -546,4 +661,40 @@ public final class UpgradeApi {
                 .map(UpgradeTrackDefinition::displayName)
                 .orElse(Component.literal(trackId.toString()));
     }
+
+    private static Collection<UpgradeTrackDefinition> filterTracks(Predicate<UpgradeTrackDefinition> predicate) {
+        return TRACKS.values().stream().filter(predicate).toList();
+    }
+
+    private static Collection<UpgradeNodeDefinition> filterNodes(Predicate<UpgradeNodeDefinition> predicate) {
+        return NODES.values().stream().filter(predicate).toList();
+    }
+
+    private static Optional<NodeConflict> blockingNode(UpgradeProgressData data, UpgradeNodeDefinition node) {
+        for (UpgradeNodeDefinition unlockedNode : allNodes()) {
+            if (unlockedNode.id().equals(node.id()) || !data.hasUnlockedNode(unlockedNode.id())) {
+                continue;
+            }
+            if (node.choiceGroupId().isPresent()
+                    && unlockedNode.choiceGroupId().filter(node.choiceGroupId().get()::equals).isPresent()) {
+                return Optional.of(new NodeConflict(unlockedNode.id(), NodeConflictKind.CHOICE_GROUP));
+            }
+            if (unlockedNode.lockedNodes().contains(node.id()) || node.lockedNodes().contains(unlockedNode.id())) {
+                return Optional.of(new NodeConflict(unlockedNode.id(), NodeConflictKind.NODE_LOCK));
+            }
+            if ((node.trackId() != null && unlockedNode.lockedTracks().contains(node.trackId()))
+                    || (unlockedNode.trackId() != null && node.lockedTracks().contains(unlockedNode.trackId()))) {
+                return Optional.of(new NodeConflict(unlockedNode.id(), NodeConflictKind.TRACK_LOCK));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private enum NodeConflictKind {
+        CHOICE_GROUP,
+        NODE_LOCK,
+        TRACK_LOCK
+    }
+
+    private record NodeConflict(ResourceLocation nodeId, NodeConflictKind kind) {}
 }

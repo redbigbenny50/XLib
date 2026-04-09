@@ -1,11 +1,16 @@
 package com.whatxe.xlib.ability;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -19,6 +24,19 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
 public final class PassiveDefinition {
+    public enum Hook {
+        TICK,
+        GRANTED,
+        REVOKED,
+        HIT,
+        KILL,
+        HURT,
+        JUMP,
+        EAT,
+        BLOCK_BREAK,
+        ARMOR_CHANGE
+    }
+
     @FunctionalInterface
     public interface PassiveTicker {
         AbilityData tick(ServerPlayer player, AbilityData data);
@@ -64,6 +82,10 @@ public final class PassiveDefinition {
 
     private final ResourceLocation id;
     private final AbilityIcon icon;
+    private final ResourceLocation familyId;
+    private final ResourceLocation groupId;
+    private final ResourceLocation pageId;
+    private final Set<ResourceLocation> tags;
     private final List<AbilityRequirement> grantRequirements;
     private final List<AbilityRequirement> activeRequirements;
     private final double cooldownTickRateMultiplier;
@@ -82,6 +104,10 @@ public final class PassiveDefinition {
     private PassiveDefinition(
             ResourceLocation id,
             AbilityIcon icon,
+            ResourceLocation familyId,
+            ResourceLocation groupId,
+            ResourceLocation pageId,
+            Set<ResourceLocation> tags,
             List<AbilityRequirement> grantRequirements,
             List<AbilityRequirement> activeRequirements,
             double cooldownTickRateMultiplier,
@@ -99,6 +125,10 @@ public final class PassiveDefinition {
     ) {
         this.id = id;
         this.icon = icon;
+        this.familyId = familyId;
+        this.groupId = groupId;
+        this.pageId = pageId;
+        this.tags = copyTags(tags);
         this.grantRequirements = List.copyOf(grantRequirements);
         this.activeRequirements = List.copyOf(activeRequirements);
         this.cooldownTickRateMultiplier = cooldownTickRateMultiplier;
@@ -129,6 +159,90 @@ public final class PassiveDefinition {
 
     public AbilityIcon icon() {
         return this.icon;
+    }
+
+    public Optional<ResourceLocation> familyId() {
+        return Optional.ofNullable(this.familyId);
+    }
+
+    public Optional<ResourceLocation> groupId() {
+        return Optional.ofNullable(this.groupId);
+    }
+
+    public Optional<ResourceLocation> pageId() {
+        return Optional.ofNullable(this.pageId);
+    }
+
+    public Set<ResourceLocation> tags() {
+        return this.tags;
+    }
+
+    public boolean hasTag(ResourceLocation tagId) {
+        return this.tags.contains(tagId);
+    }
+
+    public List<ResourceLocation> metadataIds() {
+        List<ResourceLocation> ids = new ArrayList<>(3 + this.tags.size());
+        if (this.familyId != null) {
+            ids.add(this.familyId);
+        }
+        if (this.groupId != null) {
+            ids.add(this.groupId);
+        }
+        if (this.pageId != null) {
+            ids.add(this.pageId);
+        }
+        ids.addAll(this.tags);
+        return List.copyOf(ids);
+    }
+
+    public Set<Hook> authoredHooks() {
+        EnumSet<Hook> hooks = EnumSet.noneOf(Hook.class);
+        if (this.ticker != NOOP_TICKER) {
+            hooks.add(Hook.TICK);
+        }
+        if (this.onGranted != NOOP_ACTION) {
+            hooks.add(Hook.GRANTED);
+        }
+        if (this.onRevoked != NOOP_ACTION) {
+            hooks.add(Hook.REVOKED);
+        }
+        if (this.onHit != NOOP_HIT_ACTION) {
+            hooks.add(Hook.HIT);
+        }
+        if (this.onKill != NOOP_HIT_ACTION) {
+            hooks.add(Hook.KILL);
+        }
+        if (this.onHurt != NOOP_HURT_ACTION) {
+            hooks.add(Hook.HURT);
+        }
+        if (this.onJump != NOOP_ACTION) {
+            hooks.add(Hook.JUMP);
+        }
+        if (this.onEat != NOOP_EAT_ACTION) {
+            hooks.add(Hook.EAT);
+        }
+        if (this.onBlockBreak != NOOP_BLOCK_BREAK_ACTION) {
+            hooks.add(Hook.BLOCK_BREAK);
+        }
+        if (this.onArmorChange != NOOP_ARMOR_CHANGE_ACTION) {
+            hooks.add(Hook.ARMOR_CHANGE);
+        }
+        return Collections.unmodifiableSet(hooks);
+    }
+
+    public boolean hasHook(Hook hook) {
+        return authoredHooks().contains(Objects.requireNonNull(hook, "hook"));
+    }
+
+    public Set<PassiveSoundTrigger> soundTriggers() {
+        EnumSet<PassiveSoundTrigger> triggers = EnumSet.noneOf(PassiveSoundTrigger.class);
+        for (Map.Entry<PassiveSoundTrigger, List<AbilitySound>> entry : this.sounds.entrySet()) {
+            if (!entry.getValue().isEmpty()) {
+                triggers.add(entry.getKey());
+            }
+        }
+        return Collections.unmodifiableSet(triggers);
     }
 
     public Component displayName() {
@@ -229,9 +343,17 @@ public final class PassiveDefinition {
         return Map.copyOf(copied);
     }
 
+    private static Set<ResourceLocation> copyTags(Collection<ResourceLocation> source) {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(source));
+    }
+
     public static final class Builder {
         private final ResourceLocation id;
         private final AbilityIcon icon;
+        private ResourceLocation familyId;
+        private ResourceLocation groupId;
+        private ResourceLocation pageId;
+        private final Set<ResourceLocation> tags = new LinkedHashSet<>();
         private final List<AbilityRequirement> grantRequirements = new ArrayList<>();
         private final List<AbilityRequirement> activeRequirements = new ArrayList<>();
         private double cooldownTickRateMultiplier = 1.0D;
@@ -250,6 +372,31 @@ public final class PassiveDefinition {
         private Builder(ResourceLocation id, AbilityIcon icon) {
             this.id = Objects.requireNonNull(id, "id");
             this.icon = Objects.requireNonNull(icon, "icon");
+        }
+
+        public Builder family(ResourceLocation familyId) {
+            this.familyId = Objects.requireNonNull(familyId, "familyId");
+            return this;
+        }
+
+        public Builder group(ResourceLocation groupId) {
+            this.groupId = Objects.requireNonNull(groupId, "groupId");
+            return this;
+        }
+
+        public Builder page(ResourceLocation pageId) {
+            this.pageId = Objects.requireNonNull(pageId, "pageId");
+            return this;
+        }
+
+        public Builder tag(ResourceLocation tagId) {
+            this.tags.add(Objects.requireNonNull(tagId, "tagId"));
+            return this;
+        }
+
+        public Builder tags(Collection<ResourceLocation> tagIds) {
+            tagIds.stream().filter(Objects::nonNull).forEach(this.tags::add);
+            return this;
         }
 
         public Builder grantRequirement(AbilityRequirement requirement) {
@@ -338,6 +485,10 @@ public final class PassiveDefinition {
             return new PassiveDefinition(
                     this.id,
                     this.icon,
+                    this.familyId,
+                    this.groupId,
+                    this.pageId,
+                    this.tags,
                     this.grantRequirements,
                     this.activeRequirements,
                     this.cooldownTickRateMultiplier,

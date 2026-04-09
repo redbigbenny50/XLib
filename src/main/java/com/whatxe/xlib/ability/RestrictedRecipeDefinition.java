@@ -1,8 +1,11 @@
 package com.whatxe.xlib.ability;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -11,6 +14,10 @@ import org.jetbrains.annotations.Nullable;
 
 public final class RestrictedRecipeDefinition {
     private final ResourceLocation recipeId;
+    private final ResourceLocation familyId;
+    private final ResourceLocation groupId;
+    private final ResourceLocation pageId;
+    private final Set<ResourceLocation> tags;
     private final Set<ResourceLocation> recipeTags;
     private final Set<ResourceLocation> categories;
     private final Set<ResourceLocation> outputs;
@@ -22,6 +29,10 @@ public final class RestrictedRecipeDefinition {
 
     private RestrictedRecipeDefinition(
             ResourceLocation recipeId,
+            ResourceLocation familyId,
+            ResourceLocation groupId,
+            ResourceLocation pageId,
+            Set<ResourceLocation> tags,
             Set<ResourceLocation> recipeTags,
             Set<ResourceLocation> categories,
             Set<ResourceLocation> outputs,
@@ -32,6 +43,10 @@ public final class RestrictedRecipeDefinition {
             boolean hiddenWhenLocked
     ) {
         this.recipeId = recipeId;
+        this.familyId = familyId;
+        this.groupId = groupId;
+        this.pageId = pageId;
+        this.tags = Set.copyOf(tags);
         this.recipeTags = Set.copyOf(recipeTags);
         this.categories = Set.copyOf(categories);
         this.outputs = Set.copyOf(outputs);
@@ -48,6 +63,41 @@ public final class RestrictedRecipeDefinition {
 
     public ResourceLocation recipeId() {
         return this.recipeId;
+    }
+
+    public Optional<ResourceLocation> familyId() {
+        return Optional.ofNullable(this.familyId);
+    }
+
+    public Optional<ResourceLocation> groupId() {
+        return Optional.ofNullable(this.groupId);
+    }
+
+    public Optional<ResourceLocation> pageId() {
+        return Optional.ofNullable(this.pageId);
+    }
+
+    public Set<ResourceLocation> tags() {
+        return this.tags;
+    }
+
+    public boolean hasTag(ResourceLocation tagId) {
+        return this.tags.contains(tagId);
+    }
+
+    public List<ResourceLocation> metadataIds() {
+        List<ResourceLocation> ids = new ArrayList<>(3 + this.tags.size());
+        if (this.familyId != null) {
+            ids.add(this.familyId);
+        }
+        if (this.groupId != null) {
+            ids.add(this.groupId);
+        }
+        if (this.pageId != null) {
+            ids.add(this.pageId);
+        }
+        ids.addAll(this.tags);
+        return List.copyOf(ids);
     }
 
     public Set<ResourceLocation> recipeTags() {
@@ -84,6 +134,10 @@ public final class RestrictedRecipeDefinition {
 
     public static final class Builder {
         private final ResourceLocation recipeId;
+        private ResourceLocation familyId;
+        private ResourceLocation groupId;
+        private ResourceLocation pageId;
+        private final Set<ResourceLocation> tags = new LinkedHashSet<>();
         private final Set<ResourceLocation> recipeTags = new LinkedHashSet<>();
         private final Set<ResourceLocation> categories = new LinkedHashSet<>();
         private final Set<ResourceLocation> outputs = new LinkedHashSet<>();
@@ -95,6 +149,31 @@ public final class RestrictedRecipeDefinition {
 
         private Builder(ResourceLocation recipeId) {
             this.recipeId = Objects.requireNonNull(recipeId, "recipeId");
+        }
+
+        public Builder family(ResourceLocation familyId) {
+            this.familyId = Objects.requireNonNull(familyId, "familyId");
+            return this;
+        }
+
+        public Builder group(ResourceLocation groupId) {
+            this.groupId = Objects.requireNonNull(groupId, "groupId");
+            return this;
+        }
+
+        public Builder page(ResourceLocation pageId) {
+            this.pageId = Objects.requireNonNull(pageId, "pageId");
+            return this;
+        }
+
+        public Builder tag(ResourceLocation tagId) {
+            this.tags.add(Objects.requireNonNull(tagId, "tagId"));
+            return this;
+        }
+
+        public Builder tags(Collection<ResourceLocation> tagIds) {
+            tagIds.stream().filter(Objects::nonNull).forEach(this.tags::add);
+            return this;
         }
 
         public Builder recipeTag(ResourceLocation recipeTagId) {
@@ -165,6 +244,10 @@ public final class RestrictedRecipeDefinition {
         public RestrictedRecipeDefinition build() {
             return new RestrictedRecipeDefinition(
                     this.recipeId,
+                    this.familyId,
+                    this.groupId,
+                    this.pageId,
+                    this.tags,
                     this.recipeTags,
                     this.categories,
                     this.outputs,

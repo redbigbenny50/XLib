@@ -4,6 +4,8 @@ import com.whatxe.xlib.XLib;
 import com.whatxe.xlib.ability.AbilityApi;
 import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityGrantApi;
+import com.whatxe.xlib.ability.ProfileApi;
+import com.whatxe.xlib.ability.ProfileSelectionData;
 import com.whatxe.xlib.combat.CombatMarkApi;
 import com.whatxe.xlib.combat.CombatMarkData;
 import com.whatxe.xlib.combat.CombatReactionData;
@@ -39,6 +41,14 @@ public final class ModAttachments {
                     .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), UpgradeProgressData.STREAM_CODEC)
                     .build()
     );
+    public static final Supplier<AttachmentType<ProfileSelectionData>> PLAYER_PROFILE_SELECTIONS = ATTACHMENT_TYPES.register(
+            "player_profile_selections",
+            () -> AttachmentType.builder(ProfileApi::createDefaultData)
+                    .serialize(ProfileSelectionData.CODEC)
+                    .copyOnDeath()
+                    .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), ProfileSelectionData.STREAM_CODEC)
+                    .build()
+    );
     public static final Supplier<AttachmentType<CombatMarkData>> LIVING_COMBAT_MARKS = ATTACHMENT_TYPES.register(
             "living_combat_marks",
             () -> AttachmentType.builder(CombatMarkData::empty)
@@ -66,6 +76,14 @@ public final class ModAttachments {
 
     public static void setProgression(Player player, UpgradeProgressData data) {
         player.setData(PLAYER_UPGRADE_PROGRESS, UpgradeApi.sanitizeData(data));
+    }
+
+    public static ProfileSelectionData getProfiles(Player player) {
+        return player.getData(PLAYER_PROFILE_SELECTIONS);
+    }
+
+    public static void setProfiles(Player player, ProfileSelectionData data) {
+        player.setData(PLAYER_PROFILE_SELECTIONS, ProfileApi.sanitizeData(data));
     }
 
     public static CombatMarkData getMarks(LivingEntity entity) {

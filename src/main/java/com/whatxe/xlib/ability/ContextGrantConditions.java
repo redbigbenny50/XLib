@@ -62,6 +62,11 @@ public final class ContextGrantConditions {
         return Objects.requireNonNull(condition, "condition").negate();
     }
 
+    public static ContextGrantCondition fromRequirement(AbilityRequirement requirement) {
+        AbilityRequirement resolvedRequirement = Objects.requireNonNull(requirement, "requirement");
+        return (player, currentData) -> resolvedRequirement.validate(player, currentData).isEmpty();
+    }
+
     public static ContextGrantCondition dimension(ResourceLocation dimensionId) {
         Objects.requireNonNull(dimensionId, "dimensionId");
         return (player, currentData) -> player.level().dimension().location().equals(dimensionId);

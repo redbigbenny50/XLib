@@ -1,5 +1,8 @@
 package com.whatxe.xlib.ability;
 
+import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.cue.XLibCueApi;
+import com.whatxe.xlib.cue.XLibRuntimeCue;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +30,12 @@ public final class AbilityCombatTracker {
                 target.getUUID(),
                 new RecentAbilityHit(player.getUUID(), abilityId, target.level().getGameTime() + ttlTicks)
         );
+        AbilityData currentData = ModAttachments.get(player);
+        AbilityData updatedData = ReactiveTriggerApi.dispatch(player, currentData, ReactiveRuntimeEvent.hitConfirm(abilityId));
+        if (!updatedData.equals(currentData)) {
+            ModAttachments.set(player, updatedData);
+        }
+        XLibCueApi.emit(player, XLibRuntimeCue.hitConfirm(abilityId));
         ComboChainApi.onHitConfirm(player, abilityId);
     }
 

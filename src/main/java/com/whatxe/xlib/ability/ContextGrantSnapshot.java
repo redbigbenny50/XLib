@@ -12,7 +12,9 @@ public record ContextGrantSnapshot(
         Set<ResourceLocation> passives,
         Set<ResourceLocation> grantedItems,
         Set<ResourceLocation> recipePermissions,
-        Set<ResourceLocation> blockedAbilities
+        Set<ResourceLocation> blockedAbilities,
+        Set<ResourceLocation> statePolicies,
+        Set<ResourceLocation> stateFlags
 ) {
     public ContextGrantSnapshot {
         Objects.requireNonNull(sourceId, "sourceId");
@@ -21,10 +23,12 @@ public record ContextGrantSnapshot(
         grantedItems = Set.copyOf(grantedItems);
         recipePermissions = Set.copyOf(recipePermissions);
         blockedAbilities = Set.copyOf(blockedAbilities);
+        statePolicies = Set.copyOf(statePolicies);
+        stateFlags = Set.copyOf(stateFlags);
     }
 
     public static ContextGrantSnapshot empty(ResourceLocation sourceId) {
-        return new ContextGrantSnapshot(sourceId, Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+        return new ContextGrantSnapshot(sourceId, Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
     }
 
     public static Builder builder(ResourceLocation sourceId) {
@@ -36,7 +40,9 @@ public record ContextGrantSnapshot(
                 && this.passives.isEmpty()
                 && this.grantedItems.isEmpty()
                 && this.recipePermissions.isEmpty()
-                && this.blockedAbilities.isEmpty();
+                && this.blockedAbilities.isEmpty()
+                && this.statePolicies.isEmpty()
+                && this.stateFlags.isEmpty();
     }
 
     public ContextGrantSnapshot merge(ContextGrantSnapshot other) {
@@ -55,6 +61,10 @@ public record ContextGrantSnapshot(
                 .grantRecipePermissions(other.recipePermissions)
                 .blockAbilities(this.blockedAbilities)
                 .blockAbilities(other.blockedAbilities)
+                .grantStatePolicies(this.statePolicies)
+                .grantStatePolicies(other.statePolicies)
+                .grantStateFlags(this.stateFlags)
+                .grantStateFlags(other.stateFlags)
                 .build();
     }
 
@@ -65,6 +75,8 @@ public record ContextGrantSnapshot(
         private final Set<ResourceLocation> grantedItems = new LinkedHashSet<>();
         private final Set<ResourceLocation> recipePermissions = new LinkedHashSet<>();
         private final Set<ResourceLocation> blockedAbilities = new LinkedHashSet<>();
+        private final Set<ResourceLocation> statePolicies = new LinkedHashSet<>();
+        private final Set<ResourceLocation> stateFlags = new LinkedHashSet<>();
 
         private Builder(ResourceLocation sourceId) {
             this.sourceId = Objects.requireNonNull(sourceId, "sourceId");
@@ -120,6 +132,26 @@ public record ContextGrantSnapshot(
             return this;
         }
 
+        public Builder grantStatePolicy(ResourceLocation statePolicyId) {
+            this.statePolicies.add(Objects.requireNonNull(statePolicyId, "statePolicyId"));
+            return this;
+        }
+
+        public Builder grantStatePolicies(Collection<ResourceLocation> statePolicyIds) {
+            statePolicyIds.stream().filter(Objects::nonNull).forEach(this.statePolicies::add);
+            return this;
+        }
+
+        public Builder grantStateFlag(ResourceLocation stateFlagId) {
+            this.stateFlags.add(Objects.requireNonNull(stateFlagId, "stateFlagId"));
+            return this;
+        }
+
+        public Builder grantStateFlags(Collection<ResourceLocation> stateFlagIds) {
+            stateFlagIds.stream().filter(Objects::nonNull).forEach(this.stateFlags::add);
+            return this;
+        }
+
         public ContextGrantSnapshot build() {
             return new ContextGrantSnapshot(
                     this.sourceId,
@@ -127,7 +159,9 @@ public record ContextGrantSnapshot(
                     this.passives,
                     this.grantedItems,
                     this.recipePermissions,
-                    this.blockedAbilities
+                    this.blockedAbilities,
+                    this.statePolicies,
+                    this.stateFlags
             );
         }
     }

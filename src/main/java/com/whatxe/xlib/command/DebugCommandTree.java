@@ -17,6 +17,12 @@ final class DebugCommandTree {
                                 context.getSource(),
                                 EntityArgument.getPlayer(context, "target")
                         )))
+                .then(Commands.literal("state")
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .executes(context -> DebugAdminCommands.state(
+                                        context.getSource(),
+                                        EntityArgument.getPlayer(context, "target")
+                                ))))
                 .then(Commands.literal("counters")
                         .then(Commands.argument("target", EntityArgument.player())
                                 .executes(context -> DebugAdminCommands.counters(

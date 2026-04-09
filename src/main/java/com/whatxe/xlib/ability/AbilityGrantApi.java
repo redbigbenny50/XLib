@@ -70,6 +70,10 @@ public final class AbilityGrantApi {
         if (viewFailure.isPresent()) {
             return viewFailure;
         }
+        StateControlStatus controlStatus = StatePolicyApi.controlStatus(data, ability);
+        if (controlStatus.assignmentBlocked()) {
+            return Optional.of(Component.translatable("message.xlib.ability_locked", ability.displayName()));
+        }
         if (isCommandGranted(data, ability.id())) {
             return Optional.empty();
         }
@@ -79,6 +83,17 @@ public final class AbilityGrantApi {
     public static Optional<Component> firstActivationFailure(Player player, AbilityData data, AbilityDefinition ability) {
         if (!canUse(data, ability.id())) {
             return Optional.of(Component.translatable("message.xlib.ability_not_granted", ability.displayName()));
+        }
+        Optional<Component> profileFailure = ProfileApi.firstAbilityUseFailure(player);
+        if (profileFailure.isPresent()) {
+            return profileFailure;
+        }
+        StateControlStatus controlStatus = StatePolicyApi.controlStatus(data, ability);
+        if (controlStatus.suppressed()) {
+            return Optional.of(Component.translatable("message.xlib.ability_suppressed", ability.displayName()));
+        }
+        if (controlStatus.silenced()) {
+            return Optional.of(Component.translatable("message.xlib.ability_silenced", ability.displayName()));
         }
         if (data.isAbilityActivationBlocked(ability.id())) {
             return Optional.of(Component.translatable("message.xlib.ability_temporarily_blocked", ability.displayName()));
@@ -216,6 +231,8 @@ public final class AbilityGrantApi {
             if (!seenSources.contains(sourceId)) {
                 updatedData = revokeAbilitySource(updatedData, sourceId);
                 updatedData = updatedData.clearAbilityActivationBlockSource(sourceId);
+                updatedData = StatePolicyApi.revokeSourcePolicies(updatedData, sourceId);
+                updatedData = StateFlagApi.revokeSourceFlags(updatedData, sourceId);
                 updatedData = PassiveGrantApi.revokeSourcePassives(serverPlayer, updatedData, sourceId);
                 updatedData = GrantedItemGrantApi.revokeSourceItems(serverPlayer, updatedData, sourceId);
                 updatedData = RecipePermissionApi.revokeSourcePermissions(serverPlayer, updatedData, sourceId);
@@ -231,10 +248,19 @@ public final class AbilityGrantApi {
         }
 
         AbilityData sanitized = data;
-        for (int slot = 0; slot < AbilityData.SLOT_COUNT; slot++) {
-            ResourceLocation abilityId = sanitized.abilityInSlot(slot).orElse(null);
-            if (abilityId != null && !sanitized.canUseAbility(abilityId)) {
-                sanitized = sanitized.withAbilityInSlot(slot, null);
+        for (ResourceLocation containerId : sanitized.containerState().containerIds().isEmpty()
+                ? java.util.List.of(AbilitySlotContainerApi.PRIMARY_CONTAINER_ID)
+                : sanitized.containerState().containerIds()) {
+            int pageCount = Math.max(1, AbilitySlotContainerApi.resolvedPageCount(sanitized, containerId));
+            int slotCount = Math.max(1, AbilitySlotContainerApi.resolvedSlotsPerPage(sanitized, containerId));
+            for (int pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+                for (int slot = 0; slot < slotCount; slot++) {
+                    AbilitySlotReference slotReference = new AbilitySlotReference(containerId, pageIndex, slot);
+                    ResourceLocation abilityId = sanitized.abilityInSlot(slotReference).orElse(null);
+                    if (abilityId != null && !sanitized.canUseAbility(abilityId)) {
+                        sanitized = sanitized.withAbilityInSlot(slotReference, null);
+                    }
+                }
             }
         }
 

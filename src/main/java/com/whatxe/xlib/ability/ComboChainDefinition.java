@@ -34,6 +34,7 @@ public final class ComboChainDefinition {
     private final int windowTicks;
     private final boolean transformTriggeredSlot;
     private final @Nullable Integer targetSlot;
+    private final @Nullable AbilitySlotReference targetSlotReference;
 
     private ComboChainDefinition(
             ResourceLocation id,
@@ -43,7 +44,8 @@ public final class ComboChainDefinition {
             TriggerType triggerType,
             int windowTicks,
             boolean transformTriggeredSlot,
-            @Nullable Integer targetSlot
+            @Nullable Integer targetSlot,
+            @Nullable AbilitySlotReference targetSlotReference
     ) {
         this.id = id;
         this.triggerAbilityId = triggerAbilityId;
@@ -53,6 +55,7 @@ public final class ComboChainDefinition {
         this.windowTicks = windowTicks;
         this.transformTriggeredSlot = transformTriggeredSlot;
         this.targetSlot = targetSlot;
+        this.targetSlotReference = targetSlotReference;
     }
 
     public static Builder builder(ResourceLocation id, ResourceLocation triggerAbilityId, ResourceLocation comboAbilityId) {
@@ -91,6 +94,10 @@ public final class ComboChainDefinition {
         return this.targetSlot;
     }
 
+    public @Nullable AbilitySlotReference targetSlotReference() {
+        return this.targetSlotReference;
+    }
+
     public ResourceLocation resolveComboAbilityId(ServerPlayer player, AbilityData data) {
         for (Branch branch : this.branches) {
             if (branch.condition().test(player, data)) {
@@ -109,6 +116,7 @@ public final class ComboChainDefinition {
         private int windowTicks = 30;
         private boolean transformTriggeredSlot;
         private Integer targetSlot;
+        private AbilitySlotReference targetSlotReference;
 
         private Builder(ResourceLocation id, ResourceLocation triggerAbilityId, ResourceLocation comboAbilityId) {
             this.id = Objects.requireNonNull(id, "id");
@@ -144,6 +152,7 @@ public final class ComboChainDefinition {
         public Builder transformTriggeredSlot() {
             this.transformTriggeredSlot = true;
             this.targetSlot = null;
+            this.targetSlotReference = null;
             return this;
         }
 
@@ -152,6 +161,18 @@ public final class ComboChainDefinition {
                 throw new IllegalArgumentException("Invalid combo target slot: " + targetSlot);
             }
             this.targetSlot = targetSlot;
+            this.targetSlotReference = AbilitySlotReference.primary(targetSlot);
+            this.transformTriggeredSlot = false;
+            return this;
+        }
+
+        public Builder targetSlot(AbilitySlotReference slotReference) {
+            AbilitySlotReference resolvedSlotReference = Objects.requireNonNull(slotReference, "slotReference");
+            if (!AbilitySlotContainerApi.isPrimarySlotReference(resolvedSlotReference)) {
+                throw new IllegalArgumentException("Auxiliary combo target slots are no longer supported: " + resolvedSlotReference);
+            }
+            this.targetSlotReference = resolvedSlotReference;
+            this.targetSlot = resolvedSlotReference.slotIndex();
             this.transformTriggeredSlot = false;
             return this;
         }
@@ -168,7 +189,8 @@ public final class ComboChainDefinition {
                     this.triggerType,
                     this.windowTicks,
                     this.transformTriggeredSlot,
-                    this.targetSlot
+                    this.targetSlot,
+                    this.targetSlotReference
             );
         }
     }

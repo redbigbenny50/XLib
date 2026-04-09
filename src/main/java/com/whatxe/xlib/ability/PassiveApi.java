@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 import net.minecraft.resources.ResourceLocation;
 
 public final class PassiveApi {
@@ -35,6 +36,30 @@ public final class PassiveApi {
 
     public static Collection<PassiveDefinition> allPassives() {
         return List.copyOf(PASSIVES.values());
+    }
+
+    public static Collection<PassiveDefinition> passivesInFamily(ResourceLocation familyId) {
+        ResourceLocation resolvedFamilyId = java.util.Objects.requireNonNull(familyId, "familyId");
+        return filterPassives(passive -> passive.familyId().filter(resolvedFamilyId::equals).isPresent());
+    }
+
+    public static Collection<PassiveDefinition> passivesInGroup(ResourceLocation groupId) {
+        ResourceLocation resolvedGroupId = java.util.Objects.requireNonNull(groupId, "groupId");
+        return filterPassives(passive -> passive.groupId().filter(resolvedGroupId::equals).isPresent());
+    }
+
+    public static Collection<PassiveDefinition> passivesOnPage(ResourceLocation pageId) {
+        ResourceLocation resolvedPageId = java.util.Objects.requireNonNull(pageId, "pageId");
+        return filterPassives(passive -> passive.pageId().filter(resolvedPageId::equals).isPresent());
+    }
+
+    public static Collection<PassiveDefinition> passivesWithTag(ResourceLocation tagId) {
+        ResourceLocation resolvedTagId = java.util.Objects.requireNonNull(tagId, "tagId");
+        return filterPassives(passive -> passive.hasTag(resolvedTagId));
+    }
+
+    private static Collection<PassiveDefinition> filterPassives(Predicate<PassiveDefinition> predicate) {
+        return PASSIVES.values().stream().filter(predicate).toList();
     }
 }
 

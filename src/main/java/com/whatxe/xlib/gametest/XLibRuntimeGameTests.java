@@ -20,6 +20,12 @@ import com.whatxe.xlib.ability.GrantedItemApi;
 import com.whatxe.xlib.ability.GrantedItemDefinition;
 import com.whatxe.xlib.ability.GrantedItemGrantApi;
 import com.whatxe.xlib.ability.GrantedItemRuntime;
+import com.whatxe.xlib.ability.GrantBundleApi;
+import com.whatxe.xlib.ability.GrantBundleDefinition;
+import com.whatxe.xlib.ability.ControlledEntityApi;
+import com.whatxe.xlib.ability.EntityRelationshipApi;
+import com.whatxe.xlib.ability.IdentityApi;
+import com.whatxe.xlib.ability.IdentityDefinition;
 import com.whatxe.xlib.ability.ModeApi;
 import com.whatxe.xlib.ability.ModeDefinition;
 import com.whatxe.xlib.ability.PassiveApi;
@@ -29,6 +35,8 @@ import com.whatxe.xlib.ability.RecipePermissionApi;
 import com.whatxe.xlib.ability.RestrictedRecipeDefinition;
 import com.whatxe.xlib.ability.RestrictedRecipeRule;
 import com.whatxe.xlib.ability.SimpleContextGrantProvider;
+import com.whatxe.xlib.ability.SupportPackageApi;
+import com.whatxe.xlib.ability.SupportPackageDefinition;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.event.AbilityGameplayHooks;
 import com.whatxe.xlib.event.AbilityItemHooks;
@@ -39,6 +47,7 @@ import com.whatxe.xlib.progression.UpgradeKillRule;
 import com.whatxe.xlib.progression.UpgradeNodeDefinition;
 import com.whatxe.xlib.progression.UpgradePointType;
 import com.whatxe.xlib.progression.UpgradeRewardBundle;
+import com.whatxe.xlib.progression.UpgradeRequirements;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
@@ -1355,6 +1364,165 @@ public final class XLibRuntimeGameTests {
             UpgradeApi.unregisterKillRule(ruleId);
             UpgradeApi.unregisterPointType(pointTypeId);
         }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void upgradeChoiceNodesProjectIdentitiesAndGateFollowups(GameTestHelper helper) {
+        ResourceLocation pointTypeId = id("specialization_points");
+        ResourceLocation choiceGroupId = id("origin_choice");
+        ResourceLocation originNodeId = id("sun_origin");
+        ResourceLocation alternateNodeId = id("moon_origin");
+        ResourceLocation masteryNodeId = id("sun_mastery");
+        ResourceLocation identityId = id("identity/sunlineage");
+
+        UpgradeApi.unregisterPointType(pointTypeId);
+        UpgradeApi.unregisterNode(originNodeId);
+        UpgradeApi.unregisterNode(alternateNodeId);
+        UpgradeApi.unregisterNode(masteryNodeId);
+        IdentityApi.unregisterIdentity(identityId);
+
+        try {
+            UpgradeApi.registerPointType(UpgradePointType.of(pointTypeId));
+            IdentityApi.registerIdentity(IdentityDefinition.builder(identityId).build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(originNodeId)
+                    .choiceGroup(choiceGroupId)
+                    .pointCost(pointTypeId, 1)
+                    .rewards(UpgradeRewardBundle.builder()
+                            .grantIdentity(identityId)
+                            .build())
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(alternateNodeId)
+                    .choiceGroup(choiceGroupId)
+                    .pointCost(pointTypeId, 1)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(masteryNodeId)
+                    .requiredNode(originNodeId)
+                    .pointCost(pointTypeId, 1)
+                    .requirement(UpgradeRequirements.identityActive(identityId))
+                    .build());
+
+            ServerPlayer player = GameTestPlayerFactory.create(helper);
+            UpgradeApi.addPoints(player, pointTypeId, 2);
+
+            helper.assertTrue(UpgradeApi.unlockNode(player, originNodeId), "Players should be able to commit to the first choice node");
+            helper.assertTrue(IdentityApi.hasIdentity(player, identityId), "Choice nodes should project configured identity rewards");
+            helper.assertTrue(
+                    UpgradeApi.firstUnlockFailure(player, UpgradeApi.get(player), UpgradeApi.findNode(masteryNodeId).orElseThrow()).isEmpty(),
+                    "Projected identities should satisfy later progression requirements"
+            );
+            helper.assertTrue(UpgradeApi.unlockNode(player, masteryNodeId), "Identity-gated follow-up nodes should unlock after their origin node");
+            helper.assertTrue(
+                    UpgradeApi.firstStructuralUnlockFailure(UpgradeApi.get(player), UpgradeApi.findNode(alternateNodeId).orElseThrow()).isPresent(),
+                    "Alternative choice nodes should remain locked after the branch is committed"
+            );
+        } finally {
+            UpgradeApi.unregisterNode(originNodeId);
+            UpgradeApi.unregisterNode(alternateNodeId);
+            UpgradeApi.unregisterNode(masteryNodeId);
+            UpgradeApi.unregisterPointType(pointTypeId);
+            IdentityApi.unregisterIdentity(identityId);
+        }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void supportPackagesGrantBundlesToLinkedAllies(GameTestHelper helper) {
+        ResourceLocation supportPackageId = id("support/guardian");
+        ResourceLocation relationshipId = id("relationship/ally");
+        ResourceLocation bundleId = id("bundle/support");
+        ResourceLocation passiveId = id("support/passive");
+
+        SupportPackageApi.unregisterSupportPackage(supportPackageId);
+        GrantBundleApi.unregisterBundle(bundleId);
+        PassiveApi.unregisterPassive(passiveId);
+
+        try {
+            PassiveApi.registerPassive(PassiveDefinition.builder(passiveId, AbilityIcon.ofTexture(id("support/passive_icon"))).build());
+            GrantBundleApi.registerBundle(GrantBundleDefinition.builder(bundleId)
+                    .grantPassive(passiveId)
+                    .build());
+            SupportPackageApi.registerSupportPackage(SupportPackageDefinition.builder(supportPackageId)
+                    .grantBundle(bundleId)
+                    .relationship(relationshipId)
+                    .build());
+
+            ServerPlayer supporter = GameTestPlayerFactory.create(helper);
+            ServerPlayer ally = GameTestPlayerFactory.create(helper);
+
+            helper.assertTrue(
+                    !SupportPackageApi.apply(supporter, ally, supportPackageId),
+                    "Support packages should reject unrelated targets when a relationship is required"
+            );
+
+            EntityRelationshipApi.setOwner(ally, relationshipId, supporter);
+            helper.assertTrue(
+                    SupportPackageApi.apply(supporter, ally, supportPackageId),
+                    "Support packages should apply once the target is linked through the required relationship"
+            );
+            helper.assertTrue(
+                    ModAttachments.get(ally).grantedPassives().contains(passiveId),
+                    "Applied support packages should project their bundle passives onto the ally"
+            );
+
+            SupportPackageApi.revoke(supporter, ally, supportPackageId);
+            helper.assertTrue(
+                    !ModAttachments.get(ally).grantedPassives().contains(passiveId),
+                    "Revoked support packages should remove their projected bundle passives"
+            );
+        } finally {
+            SupportPackageApi.unregisterSupportPackage(supportPackageId);
+            GrantBundleApi.unregisterBundle(bundleId);
+            PassiveApi.unregisterPassive(passiveId);
+        }
+
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void controlledEntitiesTrackOwnersAndCommands(GameTestHelper helper) {
+        ResourceLocation relationshipId = id("relationship/summon");
+        ResourceLocation commandId = id("command/follow");
+
+        ServerPlayer controller = GameTestPlayerFactory.create(helper);
+        Villager summoned = EntityType.VILLAGER.create(helper.getLevel());
+        helper.assertTrue(summoned != null, "GameTest should be able to create a controlled villager");
+        summoned.moveTo(controller.getX() + 1.0D, controller.getY(), controller.getZ(), 0.0F, 0.0F);
+        helper.getLevel().addFreshEntity(summoned);
+
+        ControlledEntityApi.bind(summoned, relationshipId, controller);
+        ControlledEntityApi.setCommand(summoned, commandId);
+
+        helper.assertTrue(
+                ControlledEntityApi.isControlledBy(summoned, controller, relationshipId),
+                "Bound controlled entities should report their controller through the relationship layer"
+        );
+        helper.assertTrue(
+                ControlledEntityApi.controllerId(summoned, relationshipId).filter(controller.getUUID()::equals).isPresent(),
+                "Controlled entities should persist their controller UUID"
+        );
+        helper.assertTrue(
+                ControlledEntityApi.currentCommand(summoned).filter(commandId::equals).isPresent(),
+                "Controlled entities should persist their active command id"
+        );
+        helper.assertTrue(
+                ControlledEntityApi.controlledEntities(helper.getLevel(), controller, relationshipId).stream()
+                        .anyMatch(entity -> entity.getUUID().equals(summoned.getUUID())),
+                "Controllers should be able to resolve their currently bound living entities"
+        );
+
+        ControlledEntityApi.release(summoned, relationshipId);
+        ControlledEntityApi.clearCommand(summoned);
+        helper.assertTrue(
+                ControlledEntityApi.controllerId(summoned, relationshipId).isEmpty(),
+                "Released controlled entities should clear their controller relationship"
+        );
+        helper.assertTrue(
+                ControlledEntityApi.currentCommand(summoned).isEmpty(),
+                "Released controlled entities should allow their command state to be cleared"
+        );
 
         helper.succeed();
     }

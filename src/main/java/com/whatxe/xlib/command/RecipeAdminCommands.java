@@ -90,6 +90,16 @@ final class RecipeAdminCommands {
         source.sendSuccess(() -> Component.literal("permission_sources=" + XLibCommandSupport.joinIds(RecipePermissionApi.permissionSources(target, recipeId))), false);
         source.sendSuccess(() -> Component.literal("visible_when_locked=" + !RecipePermissionApi.shouldHideLockedRecipe(target, recipeId)), false);
         if (definition.isPresent()) {
+            source.sendSuccess(
+                    () -> Component.literal("metadata="
+                            + XLibCommandSupport.formatMetadata(
+                                    definition.get().familyId(),
+                                    definition.get().groupId(),
+                                    definition.get().pageId(),
+                                    definition.get().tags()
+                            )),
+                    false
+            );
             source.sendSuccess(() -> Component.literal("recipe_tags=" + XLibCommandSupport.joinIds(definition.get().recipeTags())), false);
             source.sendSuccess(() -> Component.literal("categories=" + XLibCommandSupport.joinIds(definition.get().categories())), false);
             source.sendSuccess(() -> Component.literal("outputs=" + XLibCommandSupport.joinIds(definition.get().outputs())), false);

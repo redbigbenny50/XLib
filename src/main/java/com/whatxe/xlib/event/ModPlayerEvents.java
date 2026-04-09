@@ -5,6 +5,7 @@ import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.GrantedItemRuntime;
 import com.whatxe.xlib.ability.AbilityRuntime;
 import com.whatxe.xlib.ability.PassiveRuntime;
+import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.RecipePermissionApi;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.progression.UpgradeApi;
@@ -12,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.AdvancementEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
@@ -25,11 +27,16 @@ public final class ModPlayerEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             ModAttachments.set(player, player.getData(ModAttachments.PLAYER_ABILITY_DATA));
             ModAttachments.setProgression(player, player.getData(ModAttachments.PLAYER_UPGRADE_PROGRESS));
+            ModAttachments.setProfiles(player, player.getData(ModAttachments.PLAYER_PROFILE_SELECTIONS));
             RecipePermissionApi.installCraftingGuards(player);
             GrantedItemRuntime.installStorageGuards(player);
             GrantedItemRuntime.reconcile(player);
             RecipePermissionApi.syncServerState(player);
             UpgradeApi.syncServerState(player);
+            ProfileApi.rebuild(player);
+            if (!ProfileApi.get(player).firstLoginHandled()) {
+                ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.FIRST_LOGIN, "first_login");
+            }
         }
     }
 
@@ -41,6 +48,10 @@ public final class ModPlayerEvents {
         RecipePermissionApi.installCraftingGuards(player);
         GrantedItemRuntime.installStorageGuards(player);
         GrantedItemRuntime.restoreMissingUndroppableItems(player);
+        ModAttachments.set(player, player.getData(ModAttachments.PLAYER_ABILITY_DATA));
+        ModAttachments.setProfiles(player, player.getData(ModAttachments.PLAYER_PROFILE_SELECTIONS));
+        ProfileApi.rebuild(player);
+        ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.RESPAWN, "respawn");
     }
 
     @SubscribeEvent
@@ -55,6 +66,7 @@ public final class ModPlayerEvents {
     public static void onAdvancementEarn(AdvancementEvent.AdvancementEarnEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             RecipePermissionApi.syncServerState(player);
+            ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.ADVANCEMENT, "advancement");
         }
     }
 
@@ -62,6 +74,14 @@ public final class ModPlayerEvents {
     public static void onAdvancementProgress(AdvancementEvent.AdvancementProgressEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             RecipePermissionApi.syncServerState(player);
+            ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.ADVANCEMENT, "advancement");
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.ITEM_USE, "item_use");
         }
     }
 

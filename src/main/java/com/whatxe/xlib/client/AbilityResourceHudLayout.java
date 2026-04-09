@@ -6,7 +6,11 @@ public record AbilityResourceHudLayout(
         int width,
         int height,
         int spacing,
-        int priority
+        int priority,
+        int offsetX,
+        int offsetY,
+        boolean showName,
+        boolean showValue
 ) {
     public static AbilityResourceHudLayout defaultLayout() {
         return wideAboveHotbar().build();
@@ -41,6 +45,10 @@ public record AbilityResourceHudLayout(
         private int height = 14;
         private int spacing = 3;
         private int priority;
+        private int offsetX;
+        private int offsetY;
+        private boolean showName = true;
+        private boolean showValue = true;
 
         private Builder() {}
 
@@ -74,6 +82,26 @@ public record AbilityResourceHudLayout(
             return this;
         }
 
+        public Builder offsetX(int offsetX) {
+            this.offsetX = offsetX;
+            return this;
+        }
+
+        public Builder offsetY(int offsetY) {
+            this.offsetY = offsetY;
+            return this;
+        }
+
+        public Builder showName(boolean showName) {
+            this.showName = showName;
+            return this;
+        }
+
+        public Builder showValue(boolean showValue) {
+            this.showValue = showValue;
+            return this;
+        }
+
         public AbilityResourceHudLayout build() {
             if (this.anchor == null) {
                 throw new IllegalStateException("anchor must be provided");
@@ -96,7 +124,11 @@ public record AbilityResourceHudLayout(
                     this.width,
                     this.height,
                     this.spacing,
-                    this.priority
+                    this.priority,
+                    this.offsetX,
+                    this.offsetY,
+                    this.showName,
+                    this.showValue
             );
         }
     }

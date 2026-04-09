@@ -7,12 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.minecraft.resources.ResourceLocation;
 
 public final class AbilityApi {
     private static final Map<ResourceLocation, AbilityDefinition> ABILITIES = new LinkedHashMap<>();
     private static final Map<ResourceLocation, AbilityResourceDefinition> RESOURCES = new LinkedHashMap<>();
-    private static final Map<Integer, ResourceLocation> DEFAULT_LOADOUT = new LinkedHashMap<>();
+    private static final Map<AbilitySlotReference, ResourceLocation> DEFAULT_LOADOUT = new LinkedHashMap<>();
 
     private AbilityApi() {}
 
@@ -60,6 +61,26 @@ public final class AbilityApi {
         return List.copyOf(ABILITIES.values());
     }
 
+    public static Collection<AbilityDefinition> abilitiesInFamily(ResourceLocation familyId) {
+        ResourceLocation resolvedFamilyId = java.util.Objects.requireNonNull(familyId, "familyId");
+        return filterAbilities(ability -> ability.familyId().filter(resolvedFamilyId::equals).isPresent());
+    }
+
+    public static Collection<AbilityDefinition> abilitiesInGroup(ResourceLocation groupId) {
+        ResourceLocation resolvedGroupId = java.util.Objects.requireNonNull(groupId, "groupId");
+        return filterAbilities(ability -> ability.groupId().filter(resolvedGroupId::equals).isPresent());
+    }
+
+    public static Collection<AbilityDefinition> abilitiesOnPage(ResourceLocation pageId) {
+        ResourceLocation resolvedPageId = java.util.Objects.requireNonNull(pageId, "pageId");
+        return filterAbilities(ability -> ability.pageId().filter(resolvedPageId::equals).isPresent());
+    }
+
+    public static Collection<AbilityDefinition> abilitiesWithTag(ResourceLocation tagId) {
+        ResourceLocation resolvedTagId = java.util.Objects.requireNonNull(tagId, "tagId");
+        return filterAbilities(ability -> ability.hasTag(resolvedTagId));
+    }
+
     public static Optional<AbilityResourceDefinition> findResource(ResourceLocation id) {
         return Optional.ofNullable(RESOURCES.get(id));
     }
@@ -69,19 +90,27 @@ public final class AbilityApi {
     }
 
     public static void setDefaultAbility(int slot, ResourceLocation abilityId) {
+        setDefaultAbility(AbilitySlotReference.primary(slot), abilityId);
+    }
+
+    public static void setDefaultAbility(AbilitySlotReference slotReference, ResourceLocation abilityId) {
         XLibRegistryGuard.ensureMutable("default_loadout");
-        if (slot < 0 || slot >= AbilityData.SLOT_COUNT) {
-            throw new IllegalArgumentException("Invalid default loadout slot: " + slot);
+        if (!AbilitySlotContainerApi.isPrimarySlotReference(slotReference)) {
+            throw new IllegalArgumentException("Invalid default loadout slot reference: " + slotReference);
         }
-        DEFAULT_LOADOUT.put(slot, abilityId);
+        DEFAULT_LOADOUT.put(slotReference, abilityId);
     }
 
     public static void clearDefaultAbility(int slot) {
+        clearDefaultAbility(AbilitySlotReference.primary(slot));
+    }
+
+    public static void clearDefaultAbility(AbilitySlotReference slotReference) {
         XLibRegistryGuard.ensureMutable("default_loadout");
-        if (slot < 0 || slot >= AbilityData.SLOT_COUNT) {
-            throw new IllegalArgumentException("Invalid default loadout slot: " + slot);
+        if (!AbilitySlotContainerApi.isPrimarySlotReference(slotReference)) {
+            throw new IllegalArgumentException("Invalid default loadout slot reference: " + slotReference);
         }
-        DEFAULT_LOADOUT.remove(slot);
+        DEFAULT_LOADOUT.remove(slotReference);
     }
 
     public static void clearDefaultLoadout() {
@@ -94,7 +123,7 @@ public final class AbilityApi {
         for (AbilityResourceDefinition resource : RESOURCES.values()) {
             data = data.withResourceAmount(resource.id(), resource.startingAmount());
         }
-        for (Map.Entry<Integer, ResourceLocation> entry : DEFAULT_LOADOUT.entrySet()) {
+        for (Map.Entry<AbilitySlotReference, ResourceLocation> entry : DEFAULT_LOADOUT.entrySet()) {
             data = data.withAbilityInSlot(entry.getKey(), entry.getValue());
         }
         return data;
@@ -103,16 +132,23 @@ public final class AbilityApi {
     public static AbilityData sanitizeData(AbilityData data) {
         AbilityData sanitized = AbilityData.empty().withAbilityAccessRestricted(data.abilityAccessRestricted());
         for (int slot = 0; slot < AbilityData.SLOT_COUNT; slot++) {
-            ResourceLocation abilityId = data.abilityInSlot(slot).orElse(null);
+            AbilitySlotReference slotReference = AbilitySlotReference.primary(slot);
+            ResourceLocation abilityId = data.abilityInSlot(slotReference).orElse(null);
             if (abilityId != null && ABILITIES.containsKey(abilityId)) {
-                sanitized = sanitized.withAbilityInSlot(slot, abilityId);
+                sanitized = sanitized.withAbilityInSlot(slotReference, abilityId);
+            }
+
+            ResourceLocation comboAbilityId = data.comboOverrideInSlot(slotReference).orElse(null);
+            if (comboAbilityId != null && ABILITIES.containsKey(comboAbilityId)) {
+                sanitized = sanitized.withComboOverride(slotReference, comboAbilityId, data.comboOverrideDurationForSlot(slotReference));
             }
         }
         for (Map.Entry<ResourceLocation, List<Optional<ResourceLocation>>> entry : data.modeLoadouts().entrySet()) {
-            for (int slot = 0; slot < AbilityData.SLOT_COUNT; slot++) {
-                ResourceLocation abilityId = data.modeAbilityInSlot(entry.getKey(), slot).orElse(null);
+            for (int slot = 0; slot < entry.getValue().size(); slot++) {
+                AbilitySlotReference slotReference = AbilitySlotReference.primary(slot);
+                ResourceLocation abilityId = data.modeAbilityInSlot(entry.getKey(), slotReference).orElse(null);
                 if (abilityId != null && ABILITIES.containsKey(abilityId)) {
-                    sanitized = sanitized.withModeAbilityInSlot(entry.getKey(), slot, abilityId);
+                    sanitized = sanitized.withModeAbilityInSlot(entry.getKey(), slotReference, abilityId);
                 }
             }
         }
@@ -129,15 +165,14 @@ public final class AbilityApi {
                 sanitized = sanitized.withActiveDuration(activeAbilityId, data.activeDurationFor(activeAbilityId));
             }
         }
+        for (Map.Entry<ResourceLocation, Integer> entry : data.detectorWindows().entrySet()) {
+            if (AbilityDetectorApi.findDetector(entry.getKey()).isPresent()) {
+                sanitized = sanitized.withDetectorWindow(entry.getKey(), entry.getValue());
+            }
+        }
         for (Map.Entry<ResourceLocation, Integer> entry : data.comboWindows().entrySet()) {
             if (ABILITIES.containsKey(entry.getKey())) {
                 sanitized = sanitized.withComboWindow(entry.getKey(), entry.getValue());
-            }
-        }
-        for (int slot = 0; slot < AbilityData.SLOT_COUNT; slot++) {
-            ResourceLocation comboAbilityId = data.comboOverrideInSlot(slot).orElse(null);
-            if (comboAbilityId != null && ABILITIES.containsKey(comboAbilityId)) {
-                sanitized = sanitized.withComboOverride(slot, comboAbilityId, data.comboOverrideDurationForSlot(slot));
             }
         }
         for (Map.Entry<ResourceLocation, Integer> entry : data.charges().entrySet()) {
@@ -193,6 +228,34 @@ public final class AbilityApi {
                 }
             }
         }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : data.statePolicySources().entrySet()) {
+            if (StatePolicyApi.findStatePolicy(entry.getKey()).isPresent()) {
+                for (ResourceLocation sourceId : entry.getValue()) {
+                    sanitized = sanitized.withStatePolicySource(entry.getKey(), sourceId, true);
+                }
+            }
+        }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : data.stateFlagSources().entrySet()) {
+            if (StateFlagApi.findStateFlag(entry.getKey()).isPresent()) {
+                for (ResourceLocation sourceId : entry.getValue()) {
+                    sanitized = sanitized.withStateFlagSource(entry.getKey(), sourceId, true);
+                }
+            }
+        }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : data.grantBundleSources().entrySet()) {
+            if (GrantBundleApi.findBundle(entry.getKey()).isPresent()) {
+                for (ResourceLocation sourceId : entry.getValue()) {
+                    sanitized = sanitized.withGrantBundleSource(entry.getKey(), sourceId, true);
+                }
+            }
+        }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : data.artifactUnlockSources().entrySet()) {
+            if (ArtifactApi.findArtifact(entry.getKey()).isPresent()) {
+                for (ResourceLocation sourceId : entry.getValue()) {
+                    sanitized = sanitized.withArtifactUnlockSource(entry.getKey(), sourceId, true);
+                }
+            }
+        }
         for (ResourceLocation managedSource : data.managedGrantSources()) {
             sanitized = sanitized.withManagedGrantSource(managedSource, true);
         }
@@ -207,6 +270,10 @@ public final class AbilityApi {
         }
 
         return sanitized;
+    }
+
+    private static Collection<AbilityDefinition> filterAbilities(Predicate<AbilityDefinition> predicate) {
+        return ABILITIES.values().stream().filter(predicate).toList();
     }
 }
 

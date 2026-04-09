@@ -1,13 +1,18 @@
 package com.whatxe.xlib.client;
 
-import com.whatxe.xlib.client.screen.AbilityMenuScreen;
-import com.whatxe.xlib.client.screen.ProgressionMenuScreen;
+import com.whatxe.xlib.client.AbilityLoadoutQuickSwitchApi;
+import com.whatxe.xlib.ability.ProfileApi;
+import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.ability.AbilitySlotReference;
+import com.whatxe.xlib.menu.AbilityMenuAccessApi;
+import com.whatxe.xlib.menu.ProgressionMenuAccessApi;
 import net.minecraft.client.Minecraft;
+import org.jetbrains.annotations.Nullable;
 
 public final class AbilityClientState {
     private static boolean combatBarEnabled = false;
     private static int lockedHotbarSlot = -1;
-    private static int highlightedSlot = -1;
+    private static @Nullable AbilitySlotReference highlightedSlot = null;
     private static int highlightTicks = 0;
 
     private AbilityClientState() {}
@@ -47,13 +52,33 @@ public final class AbilityClientState {
             return;
         }
 
+        while (ModKeyMappings.TOGGLE_COMBAT_BAR.consumeClick()) {
+            toggleCombatBar(minecraft);
+        }
+
         if (minecraft.screen == null) {
+            ProfileApi.firstAutoOpenPendingGroupId(ModAttachments.getProfiles(minecraft.player))
+                    .ifPresent(groupId -> ProfileSelectionScreenFactoryApi.openActive(
+                            minecraft,
+                            new ProfileSelectionScreenContext(groupId)
+                    ));
+            if (minecraft.screen != null) {
+                return;
+            }
             while (ModKeyMappings.OPEN_ABILITY_MENU.consumeClick()) {
-                minecraft.setScreen(new AbilityMenuScreen());
+                if (!AbilityMenuAccessApi.decision(minecraft.player).isHidden()) {
+                    AbilityMenuScreenFactoryApi.openActive(minecraft);
+                }
             }
             while (ModKeyMappings.OPEN_PROGRESSION_MENU.consumeClick()) {
-                minecraft.setScreen(new ProgressionMenuScreen());
+                if (!ProgressionMenuAccessApi.decision(minecraft.player).isHidden()) {
+                    ProgressionMenuScreenFactoryApi.openActive(minecraft);
+                }
             }
+            while (ModKeyMappings.CYCLE_LOADOUT.consumeClick()) {
+                AbilityLoadoutQuickSwitchApi.handleActive(minecraft);
+            }
+            AbilityControlInputHandler.handleRegisteredKeyMappings(minecraft);
         }
 
         if (combatBarEnabled) {
@@ -68,24 +93,28 @@ public final class AbilityClientState {
         if (highlightTicks > 0) {
             highlightTicks--;
             if (highlightTicks == 0) {
-                highlightedSlot = -1;
+                highlightedSlot = null;
             }
         }
     }
 
-    public static void flashSlot(int slot) {
-        highlightedSlot = slot;
+    public static void flashSlot(AbilitySlotReference slotReference) {
+        highlightedSlot = slotReference;
         highlightTicks = 10;
     }
 
-    public static int highlightedSlot() {
-        return highlightTicks > 0 ? highlightedSlot : -1;
+    public static void flashSlot(int slot) {
+        flashSlot(AbilitySlotReference.primary(slot));
+    }
+
+    public static @Nullable AbilitySlotReference highlightedSlot() {
+        return highlightTicks > 0 ? highlightedSlot : null;
     }
 
     private static void reset() {
         combatBarEnabled = false;
         lockedHotbarSlot = -1;
-        highlightedSlot = -1;
+        highlightedSlot = null;
         highlightTicks = 0;
     }
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,18 @@ class UpgradeApiTest {
     private static final ResourceLocation COUNTER_ID = id("meat_eaten");
     private static final ResourceLocation REWARDED_ABILITY_ID = id("rewarded_ability");
     private static final ResourceLocation OTHER_ABILITY_ID = id("other_ability");
+    private static final ResourceLocation TRACK_METADATA_ID = id("track_metadata");
+    private static final ResourceLocation NODE_METADATA_ID = id("node_metadata");
+    private static final ResourceLocation FAMILY_ID = id("family/origin");
+    private static final ResourceLocation GROUP_ID = id("group/branch");
+    private static final ResourceLocation PAGE_ID = id("page/intro");
+    private static final ResourceLocation TAG_ID = id("tag/choice");
+    private static final ResourceLocation CHOICE_GROUP_ID = id("choice/origin");
+    private static final ResourceLocation ORIGIN_A_ID = id("origin_a");
+    private static final ResourceLocation ORIGIN_B_ID = id("origin_b");
+    private static final ResourceLocation LOCKER_NODE_ID = id("locker_node");
+    private static final ResourceLocation LOCKED_NODE_ID = id("locked_node");
+    private static final ResourceLocation IDENTITY_ID = id("identity/origin");
 
     @Test
     void unlockFailureRespectsPrerequisitesCostsAndCounters() {
@@ -68,6 +81,35 @@ class UpgradeApiTest {
             );
             assertTrue(kept.hasUnlockedNode(PARENT_NODE_ID));
             assertTrue(kept.hasUnlockedNode(CHILD_NODE_ID));
+        } finally {
+            unregisterFixtures();
+        }
+    }
+
+    @Test
+    void managedUnlockSourcesContributeToUnlockedNodesAndSanitizeWithDependencies() {
+        unregisterFixtures();
+        try {
+            ResourceLocation managedSourceId = id("source/profile");
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(PARENT_NODE_ID).build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(CHILD_NODE_ID)
+                    .requiredNode(PARENT_NODE_ID)
+                    .build());
+
+            UpgradeProgressData withManagedParent = UpgradeProgressData.empty()
+                    .withUnlockedNodeSource(PARENT_NODE_ID, managedSourceId, true)
+                    .withUnlockedNode(CHILD_NODE_ID, true);
+
+            assertTrue(withManagedParent.hasUnlockedNode(PARENT_NODE_ID));
+            assertTrue(withManagedParent.unlockedNodes().contains(PARENT_NODE_ID));
+            assertEquals(java.util.Set.of(managedSourceId), withManagedParent.unlockSourcesFor(PARENT_NODE_ID));
+
+            UpgradeProgressData sanitized = UpgradeApi.sanitizeData(
+                    withManagedParent.withUnlockedNodeSource(PARENT_NODE_ID, managedSourceId, false)
+            );
+
+            assertFalse(sanitized.hasUnlockedNode(PARENT_NODE_ID));
+            assertFalse(sanitized.hasUnlockedNode(CHILD_NODE_ID));
         } finally {
             unregisterFixtures();
         }
@@ -146,6 +188,64 @@ class UpgradeApiTest {
     }
 
     @Test
+    void choiceGroupsAndExplicitNodeLocksEnforceBranchCommitment() {
+        unregisterFixtures();
+        try {
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(ORIGIN_A_ID)
+                    .choiceGroup(CHOICE_GROUP_ID)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(ORIGIN_B_ID)
+                    .choiceGroup(CHOICE_GROUP_ID)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(LOCKER_NODE_ID)
+                    .lockedNode(LOCKED_NODE_ID)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(LOCKED_NODE_ID).build());
+
+            UpgradeProgressData chosenA = UpgradeProgressData.empty().withUnlockedNode(ORIGIN_A_ID, true);
+            assertTrue(UpgradeApi.firstStructuralUnlockFailure(chosenA, UpgradeApi.findNode(ORIGIN_B_ID).orElseThrow()).isPresent());
+            assertEquals(
+                    List.of(ORIGIN_A_ID, ORIGIN_B_ID),
+                    UpgradeApi.nodesInChoiceGroup(CHOICE_GROUP_ID).stream().map(UpgradeNodeDefinition::id).toList()
+            );
+
+            UpgradeProgressData chosenLocker = UpgradeProgressData.empty().withUnlockedNode(LOCKER_NODE_ID, true);
+            assertTrue(UpgradeApi.firstStructuralUnlockFailure(chosenLocker, UpgradeApi.findNode(LOCKED_NODE_ID).orElseThrow()).isPresent());
+        } finally {
+            unregisterFixtures();
+        }
+    }
+
+    @Test
+    void nodeTrackLocksHideBlockedTracks() {
+        unregisterFixtures();
+        try {
+            UpgradeApi.registerTrack(UpgradeTrackDefinition.builder(TRACK_A_ID)
+                    .rootNode(TRACK_A_ROOT_ID)
+                    .build());
+            UpgradeApi.registerTrack(UpgradeTrackDefinition.builder(TRACK_B_ID)
+                    .rootNode(TRACK_B_ROOT_ID)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(TRACK_A_ROOT_ID)
+                    .track(TRACK_A_ID)
+                    .lockedTrack(TRACK_B_ID)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(TRACK_B_ROOT_ID)
+                    .track(TRACK_B_ID)
+                    .build());
+
+            UpgradeProgressData chosenA = UpgradeProgressData.empty().withUnlockedNode(TRACK_A_ROOT_ID, true);
+            assertTrue(UpgradeApi.isTrackBlocked(chosenA, TRACK_B_ID));
+            assertEquals(
+                    List.of(TRACK_A_ID),
+                    UpgradeApi.visibleTracks(chosenA).stream().map(UpgradeTrackDefinition::id).toList()
+            );
+        } finally {
+            unregisterFixtures();
+        }
+    }
+
+    @Test
     void revokeAbilityRewardNodesOnlyRemovesMatchingProgressionNodes() {
         unregisterFixtures();
         try {
@@ -179,12 +279,73 @@ class UpgradeApiTest {
         }
     }
 
+    @Test
+    void trackAndNodeMetadataAreStoredAndQueryable() {
+        unregisterFixtures();
+        try {
+            UpgradeApi.registerTrack(UpgradeTrackDefinition.builder(TRACK_METADATA_ID)
+                    .family(FAMILY_ID)
+                    .group(GROUP_ID)
+                    .page(PAGE_ID)
+                    .tag(TAG_ID)
+                    .rootNode(NODE_METADATA_ID)
+                    .build());
+            UpgradeApi.registerNode(UpgradeNodeDefinition.builder(NODE_METADATA_ID)
+                    .track(TRACK_METADATA_ID)
+                    .family(FAMILY_ID)
+                    .group(GROUP_ID)
+                    .page(PAGE_ID)
+                    .tag(TAG_ID)
+                    .build());
+
+            UpgradeTrackDefinition track = UpgradeApi.findTrack(TRACK_METADATA_ID).orElseThrow();
+            assertEquals(FAMILY_ID, track.familyId().orElseThrow());
+            assertEquals(GROUP_ID, track.groupId().orElseThrow());
+            assertEquals(PAGE_ID, track.pageId().orElseThrow());
+            assertTrue(track.hasTag(TAG_ID));
+            assertEquals(List.of(FAMILY_ID, GROUP_ID, PAGE_ID, TAG_ID), track.metadataIds());
+
+            UpgradeNodeDefinition node = UpgradeApi.findNode(NODE_METADATA_ID).orElseThrow();
+            assertEquals(FAMILY_ID, node.familyId().orElseThrow());
+            assertEquals(GROUP_ID, node.groupId().orElseThrow());
+            assertEquals(PAGE_ID, node.pageId().orElseThrow());
+            assertTrue(node.hasTag(TAG_ID));
+            assertEquals(List.of(FAMILY_ID, GROUP_ID, PAGE_ID, TAG_ID), node.metadataIds());
+
+            assertTrue(UpgradeApi.tracksInFamily(FAMILY_ID).stream().anyMatch(found -> found.id().equals(TRACK_METADATA_ID)));
+            assertTrue(UpgradeApi.tracksInGroup(GROUP_ID).stream().anyMatch(found -> found.id().equals(TRACK_METADATA_ID)));
+            assertTrue(UpgradeApi.tracksOnPage(PAGE_ID).stream().anyMatch(found -> found.id().equals(TRACK_METADATA_ID)));
+            assertTrue(UpgradeApi.tracksWithTag(TAG_ID).stream().anyMatch(found -> found.id().equals(TRACK_METADATA_ID)));
+            assertTrue(UpgradeApi.nodesInFamily(FAMILY_ID).stream().anyMatch(found -> found.id().equals(NODE_METADATA_ID)));
+            assertTrue(UpgradeApi.nodesInGroup(GROUP_ID).stream().anyMatch(found -> found.id().equals(NODE_METADATA_ID)));
+            assertTrue(UpgradeApi.nodesOnPage(PAGE_ID).stream().anyMatch(found -> found.id().equals(NODE_METADATA_ID)));
+            assertTrue(UpgradeApi.nodesWithTag(TAG_ID).stream().anyMatch(found -> found.id().equals(NODE_METADATA_ID)));
+        } finally {
+            unregisterFixtures();
+        }
+    }
+
+    @Test
+    void rewardBundlesCanProjectIdentities() {
+        UpgradeRewardBundle rewards = UpgradeRewardBundle.builder()
+                .grantIdentity(IDENTITY_ID)
+                .build();
+
+        assertEquals(java.util.Set.of(IDENTITY_ID), rewards.identities());
+    }
+
     private static void unregisterFixtures() {
+        UpgradeApi.unregisterNode(ORIGIN_A_ID);
+        UpgradeApi.unregisterNode(ORIGIN_B_ID);
+        UpgradeApi.unregisterNode(LOCKER_NODE_ID);
+        UpgradeApi.unregisterNode(LOCKED_NODE_ID);
+        UpgradeApi.unregisterNode(NODE_METADATA_ID);
         UpgradeApi.unregisterNode(TRACK_A_ROOT_ID);
         UpgradeApi.unregisterNode(TRACK_A_CHILD_ID);
         UpgradeApi.unregisterNode(TRACK_B_ROOT_ID);
         UpgradeApi.unregisterNode(PARENT_NODE_ID);
         UpgradeApi.unregisterNode(CHILD_NODE_ID);
+        UpgradeApi.unregisterTrack(TRACK_METADATA_ID);
         UpgradeApi.unregisterTrack(TRACK_A_ID);
         UpgradeApi.unregisterTrack(TRACK_B_ID);
         UpgradeApi.unregisterPointType(POINT_TYPE_ID);

@@ -1,17 +1,25 @@
 package com.whatxe.xlib.ability;
 
 import com.whatxe.xlib.XLib;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 public final class ModeDefinition {
     private final ResourceLocation abilityId;
+    private final @Nullable ResourceLocation familyId;
+    private final @Nullable ResourceLocation groupId;
+    private final @Nullable ResourceLocation pageId;
+    private final Set<ResourceLocation> tags;
     private final int priority;
     private final boolean stackable;
     private final @Nullable ResourceLocation cycleGroupId;
@@ -25,14 +33,21 @@ public final class ModeDefinition {
     private final Set<ResourceLocation> blockedByModes;
     private final Set<ResourceLocation> transformsFrom;
     private final Map<Integer, ResourceLocation> overlayAbilities;
+    private final Map<AbilitySlotReference, ResourceLocation> overlaySlotAbilities;
     private final Set<ResourceLocation> grantedAbilities;
     private final Set<ResourceLocation> grantedPassives;
     private final Set<ResourceLocation> grantedItems;
     private final Set<ResourceLocation> grantedRecipes;
     private final Set<ResourceLocation> blockedAbilities;
+    private final Set<ResourceLocation> statePolicies;
+    private final Set<ResourceLocation> stateFlags;
 
     private ModeDefinition(
             ResourceLocation abilityId,
+            @Nullable ResourceLocation familyId,
+            @Nullable ResourceLocation groupId,
+            @Nullable ResourceLocation pageId,
+            Set<ResourceLocation> tags,
             int priority,
             boolean stackable,
             @Nullable ResourceLocation cycleGroupId,
@@ -46,13 +61,20 @@ public final class ModeDefinition {
             Set<ResourceLocation> blockedByModes,
             Set<ResourceLocation> transformsFrom,
             Map<Integer, ResourceLocation> overlayAbilities,
+            Map<AbilitySlotReference, ResourceLocation> overlaySlotAbilities,
             Set<ResourceLocation> grantedAbilities,
             Set<ResourceLocation> grantedPassives,
             Set<ResourceLocation> grantedItems,
             Set<ResourceLocation> grantedRecipes,
-            Set<ResourceLocation> blockedAbilities
+            Set<ResourceLocation> blockedAbilities,
+            Set<ResourceLocation> statePolicies,
+            Set<ResourceLocation> stateFlags
     ) {
         this.abilityId = abilityId;
+        this.familyId = familyId;
+        this.groupId = groupId;
+        this.pageId = pageId;
+        this.tags = copyTags(tags);
         this.priority = priority;
         this.stackable = stackable;
         this.cycleGroupId = cycleGroupId;
@@ -66,11 +88,14 @@ public final class ModeDefinition {
         this.blockedByModes = Set.copyOf(blockedByModes);
         this.transformsFrom = Set.copyOf(transformsFrom);
         this.overlayAbilities = Map.copyOf(overlayAbilities);
+        this.overlaySlotAbilities = Map.copyOf(overlaySlotAbilities);
         this.grantedAbilities = Set.copyOf(grantedAbilities);
         this.grantedPassives = Set.copyOf(grantedPassives);
         this.grantedItems = Set.copyOf(grantedItems);
         this.grantedRecipes = Set.copyOf(grantedRecipes);
         this.blockedAbilities = Set.copyOf(blockedAbilities);
+        this.statePolicies = Set.copyOf(statePolicies);
+        this.stateFlags = Set.copyOf(stateFlags);
     }
 
     public static Builder builder(ResourceLocation abilityId) {
@@ -79,6 +104,41 @@ public final class ModeDefinition {
 
     public ResourceLocation abilityId() {
         return this.abilityId;
+    }
+
+    public Optional<ResourceLocation> familyId() {
+        return Optional.ofNullable(this.familyId);
+    }
+
+    public Optional<ResourceLocation> groupId() {
+        return Optional.ofNullable(this.groupId);
+    }
+
+    public Optional<ResourceLocation> pageId() {
+        return Optional.ofNullable(this.pageId);
+    }
+
+    public Set<ResourceLocation> tags() {
+        return this.tags;
+    }
+
+    public boolean hasTag(ResourceLocation tagId) {
+        return this.tags.contains(tagId);
+    }
+
+    public List<ResourceLocation> metadataIds() {
+        List<ResourceLocation> ids = new ArrayList<>(3 + this.tags.size());
+        if (this.familyId != null) {
+            ids.add(this.familyId);
+        }
+        if (this.groupId != null) {
+            ids.add(this.groupId);
+        }
+        if (this.pageId != null) {
+            ids.add(this.pageId);
+        }
+        ids.addAll(this.tags);
+        return List.copyOf(ids);
     }
 
     public int priority() {
@@ -133,6 +193,10 @@ public final class ModeDefinition {
         return this.overlayAbilities;
     }
 
+    public Map<AbilitySlotReference, ResourceLocation> overlaySlotAbilities() {
+        return this.overlaySlotAbilities;
+    }
+
     public Set<ResourceLocation> grantedAbilities() {
         return this.grantedAbilities;
     }
@@ -153,6 +217,14 @@ public final class ModeDefinition {
         return this.blockedAbilities;
     }
 
+    public Set<ResourceLocation> statePolicies() {
+        return this.statePolicies;
+    }
+
+    public Set<ResourceLocation> stateFlags() {
+        return this.stateFlags;
+    }
+
     public ResourceLocation sourceId() {
         return ResourceLocation.fromNamespaceAndPath(
                 XLib.MODID,
@@ -167,11 +239,21 @@ public final class ModeDefinition {
                 .grantGrantedItems(this.grantedItems)
                 .grantRecipePermissions(this.grantedRecipes)
                 .blockAbilities(this.blockedAbilities)
+                .grantStatePolicies(this.statePolicies)
+                .grantStateFlags(this.stateFlags)
                 .build();
+    }
+
+    private static Set<ResourceLocation> copyTags(Collection<ResourceLocation> source) {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(source));
     }
 
     public static final class Builder {
         private final ResourceLocation abilityId;
+        private @Nullable ResourceLocation familyId;
+        private @Nullable ResourceLocation groupId;
+        private @Nullable ResourceLocation pageId;
+        private final Set<ResourceLocation> tags = new LinkedHashSet<>();
         private int priority;
         private boolean stackable;
         private @Nullable ResourceLocation cycleGroupId;
@@ -185,14 +267,42 @@ public final class ModeDefinition {
         private final Set<ResourceLocation> blockedByModes = new LinkedHashSet<>();
         private final Set<ResourceLocation> transformsFrom = new LinkedHashSet<>();
         private final Map<Integer, ResourceLocation> overlayAbilities = new LinkedHashMap<>();
+        private final Map<AbilitySlotReference, ResourceLocation> overlaySlotAbilities = new LinkedHashMap<>();
         private final Set<ResourceLocation> grantedAbilities = new LinkedHashSet<>();
         private final Set<ResourceLocation> grantedPassives = new LinkedHashSet<>();
         private final Set<ResourceLocation> grantedItems = new LinkedHashSet<>();
         private final Set<ResourceLocation> grantedRecipes = new LinkedHashSet<>();
         private final Set<ResourceLocation> blockedAbilities = new LinkedHashSet<>();
+        private final Set<ResourceLocation> statePolicies = new LinkedHashSet<>();
+        private final Set<ResourceLocation> stateFlags = new LinkedHashSet<>();
 
         private Builder(ResourceLocation abilityId) {
             this.abilityId = Objects.requireNonNull(abilityId, "abilityId");
+        }
+
+        public Builder family(ResourceLocation familyId) {
+            this.familyId = Objects.requireNonNull(familyId, "familyId");
+            return this;
+        }
+
+        public Builder group(ResourceLocation groupId) {
+            this.groupId = Objects.requireNonNull(groupId, "groupId");
+            return this;
+        }
+
+        public Builder page(ResourceLocation pageId) {
+            this.pageId = Objects.requireNonNull(pageId, "pageId");
+            return this;
+        }
+
+        public Builder tag(ResourceLocation tagId) {
+            this.tags.add(Objects.requireNonNull(tagId, "tagId"));
+            return this;
+        }
+
+        public Builder tags(Collection<ResourceLocation> tagIds) {
+            tagIds.stream().filter(Objects::nonNull).forEach(this.tags::add);
+            return this;
         }
 
         public Builder priority(int priority) {
@@ -302,6 +412,16 @@ public final class ModeDefinition {
                 throw new IllegalArgumentException("Invalid overlay slot: " + slot);
             }
             this.overlayAbilities.put(slot, Objects.requireNonNull(abilityId, "abilityId"));
+            this.overlaySlotAbilities.put(AbilitySlotReference.primary(slot), abilityId);
+            return this;
+        }
+
+        public Builder overlayAbility(AbilitySlotReference slotReference, ResourceLocation abilityId) {
+            AbilitySlotReference resolvedSlotReference = Objects.requireNonNull(slotReference, "slotReference");
+            if (!AbilitySlotContainerApi.isPrimarySlotReference(resolvedSlotReference)) {
+                throw new IllegalArgumentException("Auxiliary overlay slots are no longer supported: " + resolvedSlotReference);
+            }
+            this.overlaySlotAbilities.put(resolvedSlotReference, Objects.requireNonNull(abilityId, "abilityId"));
             return this;
         }
 
@@ -355,9 +475,33 @@ public final class ModeDefinition {
             return this;
         }
 
+        public Builder statePolicy(ResourceLocation statePolicyId) {
+            this.statePolicies.add(Objects.requireNonNull(statePolicyId, "statePolicyId"));
+            return this;
+        }
+
+        public Builder statePolicies(Collection<ResourceLocation> statePolicyIds) {
+            statePolicyIds.stream().filter(Objects::nonNull).forEach(this.statePolicies::add);
+            return this;
+        }
+
+        public Builder stateFlag(ResourceLocation stateFlagId) {
+            this.stateFlags.add(Objects.requireNonNull(stateFlagId, "stateFlagId"));
+            return this;
+        }
+
+        public Builder stateFlags(Collection<ResourceLocation> stateFlagIds) {
+            stateFlagIds.stream().filter(Objects::nonNull).forEach(this.stateFlags::add);
+            return this;
+        }
+
         public ModeDefinition build() {
             return new ModeDefinition(
                     this.abilityId,
+                    this.familyId,
+                    this.groupId,
+                    this.pageId,
+                    this.tags,
                     this.priority,
                     this.stackable,
                     this.cycleGroupId,
@@ -371,11 +515,14 @@ public final class ModeDefinition {
                     this.blockedByModes,
                     this.transformsFrom,
                     this.overlayAbilities,
+                    this.overlaySlotAbilities,
                     this.grantedAbilities,
                     this.grantedPassives,
                     this.grantedItems,
                     this.grantedRecipes,
-                    this.blockedAbilities
+                    this.blockedAbilities,
+                    this.statePolicies,
+                    this.stateFlags
             );
         }
     }

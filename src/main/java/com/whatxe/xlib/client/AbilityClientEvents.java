@@ -1,14 +1,13 @@
 package com.whatxe.xlib.client;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.whatxe.xlib.integration.recipeviewer.RecipeViewerClientRuntime;
-import com.whatxe.xlib.network.ActivateAbilityPayload;
 import net.minecraft.client.Minecraft;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderGuiLayerEvent;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 public final class AbilityClientEvents {
@@ -26,8 +25,7 @@ public final class AbilityClientEvents {
             return;
         }
 
-        if (isAltKey(event.getKey())) {
-            AbilityClientState.toggleCombatBar(minecraft);
+        if (isCombatBarToggleKey(event)) {
             return;
         }
 
@@ -35,10 +33,17 @@ public final class AbilityClientEvents {
             return;
         }
 
-        int slot = slotFromKey(event.getKey());
-        if (slot >= 0) {
-            PacketDistributor.sendToServer(new ActivateAbilityPayload(slot));
-            AbilityClientState.flashSlot(slot);
+        AbilityControlInputHandler.handleKeyPress(minecraft, event.getKey(), event.getModifiers());
+    }
+
+    @SubscribeEvent
+    public void onMouseButton(InputEvent.MouseButton.Pre event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (event.getAction() != GLFW.GLFW_PRESS || !AbilityClientState.isCombatBarActive(minecraft)) {
+            return;
+        }
+        if (AbilityControlInputHandler.handleMouseButton(minecraft, event.getButton(), event.getModifiers())) {
+            event.setCanceled(true);
         }
     }
 
@@ -56,18 +61,9 @@ public final class AbilityClientEvents {
         }
     }
 
-    private static boolean isAltKey(int key) {
-        return key == GLFW.GLFW_KEY_LEFT_ALT || key == GLFW.GLFW_KEY_RIGHT_ALT;
-    }
-
-    private static int slotFromKey(int key) {
-        if (key >= GLFW.GLFW_KEY_1 && key <= GLFW.GLFW_KEY_9) {
-            return key - GLFW.GLFW_KEY_1;
-        }
-        if (key >= GLFW.GLFW_KEY_KP_1 && key <= GLFW.GLFW_KEY_KP_9) {
-            return key - GLFW.GLFW_KEY_KP_1;
-        }
-        return -1;
+    private static boolean isCombatBarToggleKey(InputEvent.Key event) {
+        return ModKeyMappings.TOGGLE_COMBAT_BAR.getKey().getType() == InputConstants.Type.KEYSYM
+                && ModKeyMappings.TOGGLE_COMBAT_BAR.getKey().getValue() == event.getKey();
     }
 }
 

@@ -12,53 +12,90 @@ public final class AbilityLoadoutApi {
     private AbilityLoadoutApi() {}
 
     public static Optional<ResourceLocation> assignedAbilityId(AbilityData data, int slot) {
-        return data.abilityInSlot(slot);
+        return assignedAbilityId(data, AbilitySlotReference.primary(slot));
+    }
+
+    public static Optional<ResourceLocation> assignedAbilityId(AbilityData data, AbilitySlotReference slotReference) {
+        return data.abilityInSlot(slotReference);
     }
 
     public static Optional<ResourceLocation> assignedAbilityId(AbilityData data, @Nullable ResourceLocation modeId, int slot) {
+        return assignedAbilityId(data, modeId, AbilitySlotReference.primary(slot));
+    }
+
+    public static Optional<ResourceLocation> assignedAbilityId(
+            AbilityData data,
+            @Nullable ResourceLocation modeId,
+            AbilitySlotReference slotReference
+    ) {
         if (modeId == null) {
-            return assignedAbilityId(data, slot);
+            return assignedAbilityId(data, slotReference);
         }
-        return data.modeAbilityInSlot(modeId, slot);
+        return data.modeAbilityInSlot(modeId, slotReference);
     }
 
     public static Optional<ResourceLocation> resolvedAbilityId(AbilityData data, int slot) {
-        Optional<ResourceLocation> comboOverride = data.comboOverrideInSlot(slot);
+        return resolvedAbilityId(data, AbilitySlotReference.primary(slot));
+    }
+
+    public static Optional<ResourceLocation> resolvedAbilityId(AbilityData data, AbilitySlotReference slotReference) {
+        Optional<ResourceLocation> comboOverride = data.comboOverrideInSlot(slotReference);
         if (comboOverride.isPresent()) {
             return comboOverride;
         }
 
-        Optional<ResourceLocation> modeOverlay = ModeApi.resolveOverlayAbility(data, slot);
+        Optional<ResourceLocation> modeOverlay = ModeApi.resolveOverlayAbility(data, slotReference);
         if (modeOverlay.isPresent()) {
             return modeOverlay;
         }
 
-        Optional<ResourceLocation> modePresetAbility = resolveModePresetAbility(data, slot);
+        Optional<ResourceLocation> modePresetAbility = resolveModePresetAbility(data, slotReference);
         if (modePresetAbility.isPresent()) {
             return modePresetAbility;
         }
 
-        return data.abilityInSlot(slot);
+        return data.abilityInSlot(slotReference);
     }
 
     public static Optional<AbilityDefinition> resolvedAbility(AbilityData data, int slot) {
-        return resolvedAbilityId(data, slot).flatMap(AbilityApi::findAbility);
+        return resolvedAbility(data, AbilitySlotReference.primary(slot));
+    }
+
+    public static Optional<AbilityDefinition> resolvedAbility(AbilityData data, AbilitySlotReference slotReference) {
+        return resolvedAbilityId(data, slotReference).flatMap(AbilityApi::findAbility);
     }
 
     public static boolean hasModeOverlay(AbilityData data, int slot) {
-        return ModeApi.resolveOverlayAbility(data, slot).isPresent();
+        return hasModeOverlay(data, AbilitySlotReference.primary(slot));
+    }
+
+    public static boolean hasModeOverlay(AbilityData data, AbilitySlotReference slotReference) {
+        return ModeApi.resolveOverlayAbility(data, slotReference).isPresent();
     }
 
     public static boolean hasComboOverride(AbilityData data, int slot) {
-        return data.comboOverrideInSlot(slot).isPresent();
+        return hasComboOverride(data, AbilitySlotReference.primary(slot));
+    }
+
+    public static boolean hasComboOverride(AbilityData data, AbilitySlotReference slotReference) {
+        return data.comboOverrideInSlot(slotReference).isPresent();
     }
 
     public static boolean assign(Player player, int slot, @Nullable ResourceLocation abilityId) {
-        return assign(player, slot, abilityId, null);
+        return assign(player, AbilitySlotReference.primary(slot), abilityId, null);
     }
 
     public static boolean assign(Player player, int slot, @Nullable ResourceLocation abilityId, @Nullable ResourceLocation modeId) {
-        if (slot < 0 || slot >= AbilityData.SLOT_COUNT) {
+        return assign(player, AbilitySlotReference.primary(slot), abilityId, modeId);
+    }
+
+    public static boolean assign(
+            Player player,
+            AbilitySlotReference slotReference,
+            @Nullable ResourceLocation abilityId,
+            @Nullable ResourceLocation modeId
+    ) {
+        if (slotReference.slotIndex() < 0 || slotReference.pageIndex() < 0) {
             return false;
         }
 
@@ -82,8 +119,8 @@ public final class AbilityLoadoutApi {
         }
 
         AbilityData updatedData = modeId == null
-                ? currentData.withAbilityInSlot(slot, abilityId)
-                : currentData.withModeAbilityInSlot(modeId, slot, abilityId);
+                ? currentData.withAbilityInSlot(slotReference, abilityId)
+                : currentData.withModeAbilityInSlot(modeId, slotReference, abilityId);
         if (!updatedData.equals(currentData)) {
             ModAttachments.set(player, updatedData);
             return true;
@@ -92,16 +129,24 @@ public final class AbilityLoadoutApi {
     }
 
     public static boolean clear(Player player, int slot) {
-        return assign(player, slot, null);
+        return clear(player, AbilitySlotReference.primary(slot));
+    }
+
+    public static boolean clear(Player player, AbilitySlotReference slotReference) {
+        return assign(player, slotReference, null, null);
     }
 
     public static boolean clearModePreset(Player player, ResourceLocation modeId, int slot) {
-        return assign(player, slot, null, modeId);
+        return clearModePreset(player, modeId, AbilitySlotReference.primary(slot));
     }
 
-    private static Optional<ResourceLocation> resolveModePresetAbility(AbilityData data, int slot) {
+    public static boolean clearModePreset(Player player, ResourceLocation modeId, AbilitySlotReference slotReference) {
+        return assign(player, slotReference, null, modeId);
+    }
+
+    private static Optional<ResourceLocation> resolveModePresetAbility(AbilityData data, AbilitySlotReference slotReference) {
         for (ModeDefinition mode : ModeApi.activeModes(data)) {
-            Optional<ResourceLocation> presetAbility = data.modeAbilityInSlot(mode.abilityId(), slot);
+            Optional<ResourceLocation> presetAbility = data.modeAbilityInSlot(mode.abilityId(), slotReference);
             if (presetAbility.isPresent()) {
                 return presetAbility;
             }

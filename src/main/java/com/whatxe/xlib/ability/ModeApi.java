@@ -3,6 +3,8 @@ package com.whatxe.xlib.ability;
 import com.whatxe.xlib.XLibRegistryGuard;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.api.event.XLibModeEvent;
+import com.whatxe.xlib.cue.XLibCueApi;
+import com.whatxe.xlib.cue.XLibRuntimeCue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -12,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -74,9 +77,36 @@ public final class ModeApi {
         return List.copyOf(MODES.values());
     }
 
+    public static Collection<ModeDefinition> modesInFamily(ResourceLocation familyId) {
+        ResourceLocation resolvedFamilyId = java.util.Objects.requireNonNull(familyId, "familyId");
+        return filterModes(mode -> mode.familyId().filter(resolvedFamilyId::equals).isPresent());
+    }
+
+    public static Collection<ModeDefinition> modesInGroup(ResourceLocation groupId) {
+        ResourceLocation resolvedGroupId = java.util.Objects.requireNonNull(groupId, "groupId");
+        return filterModes(mode -> mode.groupId().filter(resolvedGroupId::equals).isPresent());
+    }
+
+    public static Collection<ModeDefinition> modesOnPage(ResourceLocation pageId) {
+        ResourceLocation resolvedPageId = java.util.Objects.requireNonNull(pageId, "pageId");
+        return filterModes(mode -> mode.pageId().filter(resolvedPageId::equals).isPresent());
+    }
+
+    public static Collection<ModeDefinition> modesWithTag(ResourceLocation tagId) {
+        ResourceLocation resolvedTagId = java.util.Objects.requireNonNull(tagId, "tagId");
+        return filterModes(mode -> mode.hasTag(resolvedTagId));
+    }
+
     public static Optional<ResourceLocation> resolveOverlayAbility(AbilityData data, int slot) {
+        return resolveOverlayAbility(data, AbilitySlotReference.primary(slot));
+    }
+
+    public static Optional<ResourceLocation> resolveOverlayAbility(AbilityData data, AbilitySlotReference slotReference) {
         for (ModeDefinition mode : activeModes(data)) {
-            ResourceLocation overlayAbility = mode.overlayAbilities().get(slot);
+            ResourceLocation overlayAbility = mode.overlaySlotAbilities().get(slotReference);
+            if (overlayAbility == null && slotReference.isPrimaryContainer()) {
+                overlayAbility = mode.overlayAbilities().get(slotReference.slotIndex());
+            }
             if (overlayAbility != null) {
                 return Optional.of(overlayAbility);
             }
@@ -242,6 +272,7 @@ public final class ModeApi {
         if (!ability.toggleAbility() || !updatedData.isModeActive(ability.id())) {
             return;
         }
+        XLibCueApi.emit(player, updatedData, XLibRuntimeCue.stateEnter(ability.id()));
         NeoForge.EVENT_BUS.post(new XLibModeEvent.Started(player, ability, previousData, updatedData));
     }
 
@@ -259,11 +290,13 @@ public final class ModeApi {
         XLibModeEvent.Ended event = switch (reason) {
             case DURATION_EXPIRED -> new XLibModeEvent.DurationExpired(player, ability, previousData, updatedData);
             case REQUIREMENT_INVALIDATED -> new XLibModeEvent.RequirementInvalidated(player, ability, previousData, updatedData);
+            case SUPPRESSED -> new XLibModeEvent.Suppressed(player, ability, previousData, updatedData);
             case FORCE_ENDED -> new XLibModeEvent.ForceEnded(player, ability, previousData, updatedData);
             case REPLACED_BY_TRANSFORM -> new XLibModeEvent.ReplacedByTransform(player, ability, previousData, updatedData);
             case REPLACED_BY_EXCLUSIVE -> new XLibModeEvent.ReplacedByExclusive(player, ability, previousData, updatedData);
             case PLAYER_TOGGLED -> new XLibModeEvent.Ended(player, ability, previousData, updatedData, reason);
         };
+        XLibCueApi.emit(player, updatedData, XLibRuntimeCue.stateExit(ability.id(), reason));
         NeoForge.EVENT_BUS.post(event);
     }
 
@@ -287,5 +320,9 @@ public final class ModeApi {
                 .map(Component::getString)
                 .collect(Collectors.joining(", "));
         return Component.literal(joined);
+    }
+
+    private static Collection<ModeDefinition> filterModes(Predicate<ModeDefinition> predicate) {
+        return MODES.values().stream().filter(predicate).toList();
     }
 }

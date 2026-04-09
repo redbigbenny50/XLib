@@ -1,6 +1,7 @@
 package com.whatxe.xlib.progression;
 
 import com.whatxe.xlib.ability.AbilityData;
+import com.whatxe.xlib.ability.AbilityRequirement;
 import com.whatxe.xlib.ability.GrantCondition;
 import com.whatxe.xlib.ability.GrantConditions;
 import java.util.Collection;
@@ -125,8 +126,17 @@ public final class UpgradeConsumeRule {
             return this;
         }
 
+        public Builder requirement(AbilityRequirement requirement) {
+            return condition(GrantConditions.fromRequirement(requirement));
+        }
+
         public Builder conditions(Collection<GrantCondition> conditions) {
             conditions.stream().filter(Objects::nonNull).forEach(this.conditions::add);
+            return this;
+        }
+
+        public Builder requirements(Collection<AbilityRequirement> requirements) {
+            requirements.stream().filter(Objects::nonNull).forEach(this::requirement);
             return this;
         }
 

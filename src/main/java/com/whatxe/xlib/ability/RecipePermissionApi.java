@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
@@ -120,6 +121,30 @@ public final class RecipePermissionApi {
 
     public static boolean isRestricted(ResourceLocation recipeId) {
         return findRestrictedRecipe(recipeId).isPresent();
+    }
+
+    public static Collection<RestrictedRecipeDefinition> allRestrictedRecipes() {
+        return List.copyOf(resolvedRestrictionCache(null).definitions().values());
+    }
+
+    public static Collection<RestrictedRecipeDefinition> restrictedRecipesInFamily(ResourceLocation familyId) {
+        ResourceLocation resolvedFamilyId = java.util.Objects.requireNonNull(familyId, "familyId");
+        return filterRestrictedDefinitions(definition -> definition.familyId().filter(resolvedFamilyId::equals).isPresent());
+    }
+
+    public static Collection<RestrictedRecipeDefinition> restrictedRecipesInGroup(ResourceLocation groupId) {
+        ResourceLocation resolvedGroupId = java.util.Objects.requireNonNull(groupId, "groupId");
+        return filterRestrictedDefinitions(definition -> definition.groupId().filter(resolvedGroupId::equals).isPresent());
+    }
+
+    public static Collection<RestrictedRecipeDefinition> restrictedRecipesOnPage(ResourceLocation pageId) {
+        ResourceLocation resolvedPageId = java.util.Objects.requireNonNull(pageId, "pageId");
+        return filterRestrictedDefinitions(definition -> definition.pageId().filter(resolvedPageId::equals).isPresent());
+    }
+
+    public static Collection<RestrictedRecipeDefinition> restrictedRecipesWithTag(ResourceLocation tagId) {
+        ResourceLocation resolvedTagId = java.util.Objects.requireNonNull(tagId, "tagId");
+        return filterRestrictedDefinitions(definition -> definition.hasTag(resolvedTagId));
     }
 
     public static Optional<RestrictedRecipeDefinition> findRestrictedRecipe(ResourceLocation recipeId) {
@@ -407,10 +432,6 @@ public final class RecipePermissionApi {
         }
     }
 
-    private static Collection<RestrictedRecipeDefinition> allRestrictedDefinitions() {
-        return resolvedRestrictionCache(null).definitions().values();
-    }
-
     private static void setDatapackRestrictions(
             Map<ResourceLocation, RestrictedRecipeDefinition> restrictedRecipes,
             Map<ResourceLocation, RestrictedRecipeRule> restrictedRules
@@ -553,6 +574,12 @@ public final class RecipePermissionApi {
         LinkedHashMap<ResourceLocation, RestrictedRecipeDefinition> definitions = new LinkedHashMap<>(CODE_RESTRICTED_RECIPES);
         definitions.putAll(datapackRestrictions.exactRecipes());
         return definitions;
+    }
+
+    private static Collection<RestrictedRecipeDefinition> filterRestrictedDefinitions(
+            Predicate<RestrictedRecipeDefinition> predicate
+    ) {
+        return resolvedRestrictionCache(null).definitions().values().stream().filter(predicate).toList();
     }
 
     private static List<RestrictedRecipeRule> mergedRules() {

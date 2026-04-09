@@ -14,7 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 public final class ComboChainApi {
     private static final Map<ResourceLocation, ComboChainDefinition> CHAINS = new LinkedHashMap<>();
-    private static final Map<UUID, Map<ResourceLocation, Integer>> LAST_ACTIVATED_SLOTS = new ConcurrentHashMap<>();
+    private static final Map<UUID, Map<ResourceLocation, AbilitySlotReference>> LAST_ACTIVATED_SLOTS = new ConcurrentHashMap<>();
 
     private ComboChainApi() {}
 
@@ -57,16 +57,31 @@ public final class ComboChainApi {
     }
 
     public static AbilityData applyActivation(AbilityData data, ResourceLocation triggerAbilityId, int activatedSlot) {
-        return applyActivation(null, data, triggerAbilityId, activatedSlot);
+        return applyActivation(null, data, triggerAbilityId, AbilitySlotReference.primary(activatedSlot));
     }
 
     public static AbilityData applyActivation(ServerPlayer player, AbilityData data, ResourceLocation triggerAbilityId, int activatedSlot) {
+        return applyActivation(player, data, triggerAbilityId, AbilitySlotReference.primary(activatedSlot));
+    }
+
+    public static AbilityData applyActivation(
+            ServerPlayer player,
+            AbilityData data,
+            ResourceLocation triggerAbilityId,
+            AbilitySlotReference activatedSlot
+    ) {
         rememberActivatedSlot(player, triggerAbilityId, activatedSlot);
         return applyTrigger(player, data, triggerAbilityId, activatedSlot, ComboChainDefinition.TriggerType.ACTIVATION);
     }
 
     public static AbilityData applyEnd(ServerPlayer player, AbilityData data, ResourceLocation triggerAbilityId) {
-        AbilityData updatedData = applyTrigger(player, data, triggerAbilityId, rememberedActivatedSlot(player, triggerAbilityId), ComboChainDefinition.TriggerType.END);
+        AbilityData updatedData = applyTrigger(
+                player,
+                data,
+                triggerAbilityId,
+                rememberedActivatedSlot(player, triggerAbilityId),
+                ComboChainDefinition.TriggerType.END
+        );
         forgetActivatedSlot(player, triggerAbilityId);
         return updatedData;
     }
@@ -78,12 +93,22 @@ public final class ComboChainApi {
             int activatedSlot,
             ComboChainDefinition.TriggerType triggerType
     ) {
+        return applyTrigger(player, data, triggerAbilityId, AbilitySlotReference.primary(activatedSlot), triggerType);
+    }
+
+    public static AbilityData applyTrigger(
+            ServerPlayer player,
+            AbilityData data,
+            ResourceLocation triggerAbilityId,
+            AbilitySlotReference activatedSlot,
+            ComboChainDefinition.TriggerType triggerType
+    ) {
         AbilityData updatedData = data;
         for (ComboChainDefinition chain : chainsForTrigger(triggerAbilityId, triggerType)) {
             ResourceLocation comboAbilityId = chain.resolveComboAbilityId(player, updatedData);
             updatedData = updatedData.withComboWindow(comboAbilityId, chain.windowTicks());
-            int comboSlot = resolveComboSlot(chain, activatedSlot);
-            if (comboSlot >= 0) {
+            AbilitySlotReference comboSlot = resolveComboSlot(chain, activatedSlot);
+            if (comboSlot != null) {
                 updatedData = updatedData.withComboOverride(comboSlot, comboAbilityId, chain.windowTicks());
             }
         }
@@ -108,18 +133,18 @@ public final class ComboChainApi {
         return data.tickComboWindows().tickComboOverrides();
     }
 
-    private static int resolveComboSlot(ComboChainDefinition chain, int activatedSlot) {
-        if (chain.targetSlot() != null) {
-            return chain.targetSlot();
+    private static AbilitySlotReference resolveComboSlot(ComboChainDefinition chain, AbilitySlotReference activatedSlot) {
+        if (chain.targetSlotReference() != null) {
+            return chain.targetSlotReference();
         }
-        if (chain.transformTriggeredSlot() && activatedSlot >= 0 && activatedSlot < AbilityData.SLOT_COUNT) {
+        if (chain.transformTriggeredSlot() && activatedSlot != null) {
             return activatedSlot;
         }
-        return -1;
+        return null;
     }
 
-    private static void rememberActivatedSlot(ServerPlayer player, ResourceLocation triggerAbilityId, int activatedSlot) {
-        if (player == null || activatedSlot < 0 || activatedSlot >= AbilityData.SLOT_COUNT) {
+    private static void rememberActivatedSlot(ServerPlayer player, ResourceLocation triggerAbilityId, AbilitySlotReference activatedSlot) {
+        if (player == null || activatedSlot == null) {
             return;
         }
         LAST_ACTIVATED_SLOTS
@@ -127,18 +152,18 @@ public final class ComboChainApi {
                 .put(triggerAbilityId, activatedSlot);
     }
 
-    private static int rememberedActivatedSlot(ServerPlayer player, ResourceLocation triggerAbilityId) {
+    private static AbilitySlotReference rememberedActivatedSlot(ServerPlayer player, ResourceLocation triggerAbilityId) {
         if (player == null) {
-            return -1;
+            return null;
         }
-        return LAST_ACTIVATED_SLOTS.getOrDefault(player.getUUID(), Map.of()).getOrDefault(triggerAbilityId, -1);
+        return LAST_ACTIVATED_SLOTS.getOrDefault(player.getUUID(), Map.of()).get(triggerAbilityId);
     }
 
     private static void forgetActivatedSlot(ServerPlayer player, ResourceLocation triggerAbilityId) {
         if (player == null) {
             return;
         }
-        Map<ResourceLocation, Integer> rememberedSlots = LAST_ACTIVATED_SLOTS.get(player.getUUID());
+        Map<ResourceLocation, AbilitySlotReference> rememberedSlots = LAST_ACTIVATED_SLOTS.get(player.getUUID());
         if (rememberedSlots == null) {
             return;
         }

@@ -7,7 +7,6 @@ import com.whatxe.xlib.ability.PassiveDefinition;
 import com.whatxe.xlib.ability.PassiveGrantApi;
 import com.whatxe.xlib.attachment.ModAttachments;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Set;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
@@ -43,6 +42,56 @@ final class PassiveAdminCommands {
         return targets.size();
     }
 
+    static int catalog(CommandSourceStack source) {
+        Collection<PassiveDefinition> passives = PassiveApi.allPassives();
+        source.sendSuccess(() -> Component.literal("registered_passives=" + passives.size()), false);
+        for (PassiveDefinition passive : passives.stream().sorted(java.util.Comparator.comparing(definition -> definition.id().toString())).toList()) {
+            source.sendSuccess(
+                    () -> Component.literal(passive.id()
+                            + " | metadata=" + XLibCommandSupport.formatMetadataBlock(
+                                    passive.familyId(),
+                                    passive.groupId(),
+                                    passive.pageId(),
+                                    passive.tags()
+                            )
+                            + " | hooks=" + XLibCommandSupport.formatPassiveHooks(passive)
+                            + " | sound_triggers=" + XLibCommandSupport.formatPassiveSoundTriggers(passive)),
+                    false
+            );
+        }
+        return passives.size();
+    }
+
+    static int describe(CommandSourceStack source, ResourceLocation passiveId) throws CommandSyntaxException {
+        XLibCommandSupport.validatePassive(passiveId);
+        PassiveDefinition passive = PassiveApi.findPassive(passiveId).orElseThrow();
+        source.sendSuccess(() -> Component.literal(passiveId + " | display=" + passive.displayName().getString()), false);
+        source.sendSuccess(
+                () -> Component.literal("metadata=" + XLibCommandSupport.formatMetadataBlock(
+                        passive.familyId(),
+                        passive.groupId(),
+                        passive.pageId(),
+                        passive.tags()
+                )),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("grant_requirements=" + XLibCommandSupport.formatRequirementDescriptions(passive.grantRequirements())),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("active_requirements=" + XLibCommandSupport.formatRequirementDescriptions(passive.activeRequirements())),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("cooldown_multiplier=" + String.format(java.util.Locale.ROOT, "%.2f", passive.cooldownTickRateMultiplier())
+                        + " | hooks=" + XLibCommandSupport.formatPassiveHooks(passive)
+                        + " | sound_triggers=" + XLibCommandSupport.formatPassiveSoundTriggers(passive)),
+                false
+        );
+        return 1;
+    }
+
     static int list(CommandSourceStack source, ServerPlayer target) {
         Set<ResourceLocation> grantedPassives = PassiveGrantApi.grantedPassives(target);
         String passives = grantedPassives.isEmpty()
@@ -58,13 +107,13 @@ final class PassiveAdminCommands {
                 () -> Component.literal(target.getGameProfile().getName() + " | passives=" + XLibCommandSupport.joinIds(PassiveGrantApi.grantedPassives(target))),
                 false
         );
-        for (ResourceLocation passiveId : PassiveGrantApi.grantedPassives(target)) {
-            Optional<PassiveDefinition> passive = PassiveApi.findPassive(passiveId);
-            if (passive.isEmpty()) {
-                continue;
-            }
-            String active = passive.get().firstFailedActiveRequirement(target, data).map(Component::getString).orElse("ok");
-            source.sendSuccess(() -> Component.literal(passiveId + " | active=" + active), false);
+        Collection<String> stateLines = XLibCommandSupport.buildPassiveStateLines(target, data);
+        if (stateLines.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("passive_states=-"), false);
+            return 1;
+        }
+        for (String line : stateLines) {
+            source.sendSuccess(() -> Component.literal("passive_state=" + line), false);
         }
         return 1;
     }
