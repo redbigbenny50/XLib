@@ -106,6 +106,8 @@ Built-in command surfaces:
 
 Those commands report passive metadata, requirement descriptions, authored hooks, sound triggers, cooldown scaling, and the current grant/active status for a player's granted passives.
 
+The built-in ability menu now also ships a player-facing passive browser panel. It shows currently granted passives, whether each passive is active or paused, and a focused description line for the selected passive without forcing players or addon authors to lean on `/xlib passives ...` just to answer basic "what do I currently have?" questions.
+
 ## High-Level Combat Actions
 
 Use `AbilityActions` when you want a reusable combat helper instead of re-writing target lookup, miss handling, and hit attribution every time.
@@ -450,6 +452,7 @@ It supports:
 - dedicated page, group, and family scope controls for large ability libraries
 - addon-defined palette and labeling profiles through `AbilityMenuPresentationApi`
 - slot metadata details for the selected slot, including category, role hint, input hint, source ownership, and soft-lock state
+- a built-in passive browser panel with granted-passive rows, active/paused state labels, row selection, and focused passive descriptions
 - a details panel that focuses on currently failing requirements instead of dumping satisfied ones
 
 ## Presentation Profiles and HUD

@@ -6,6 +6,7 @@ import com.whatxe.xlib.ability.AbilityIcon;
 import com.whatxe.xlib.ability.GrantedItemApi;
 import com.whatxe.xlib.ability.IdentityApi;
 import com.whatxe.xlib.ability.PassiveApi;
+import com.whatxe.xlib.ability.PassiveDefinition;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.client.AbilityIconRenderer;
 import com.whatxe.xlib.client.AbilityMenuScreenFactoryApi;
@@ -22,6 +23,7 @@ import com.whatxe.xlib.presentation.ProgressionLayoutPlanner;
 import com.whatxe.xlib.presentation.ProgressionMenuPresentation;
 import com.whatxe.xlib.presentation.ProgressionMenuPresentationApi;
 import com.whatxe.xlib.presentation.ProgressionNodeLayoutMode;
+import com.whatxe.xlib.presentation.ProgressionTreeLayout;
 import com.whatxe.xlib.progression.UpgradeApi;
 import com.whatxe.xlib.progression.UpgradeNodeDefinition;
 import com.whatxe.xlib.progression.UpgradePointType;
@@ -57,11 +59,6 @@ public class ProgressionMenuScreen extends Screen {
     private static final int MIN_VISIBLE_NODE_BUTTONS = 4;
     private static final int MAX_VISIBLE_NODE_BUTTONS = 9;
     private static final int MIN_VISIBLE_CANVAS_ROWS = 5;
-    private static final int TREE_CANVAS_NODE_SIZE = 34;
-    private static final int TREE_CANVAS_ROW_SPACING = 66;
-    private static final int TREE_CANVAS_LABEL_WIDTH = 112;
-    private static final int TREE_CANVAS_LABEL_LINE_HEIGHT = 10;
-    private static final int TREE_CANVAS_MAX_LABEL_LINES = 2;
     private static final int CANVAS_CONNECTION_THICKNESS = 3;
     private static final int NODE_LIST_Y = 128;
     private static final int NODE_LIST_X_OFFSET = 186;
@@ -307,11 +304,22 @@ public class ProgressionMenuScreen extends Screen {
         detailY = drawSectionHeader(guiGraphics, detailsX, detailY + 4, "screen.xlib.progression_menu.rewards");
         List<Component> rewards = rewardSummary(node);
         if (rewards.isEmpty()) {
-            drawWrappedLine(guiGraphics, detailsX, detailY, DETAILS_PANEL_WIDTH, palette.bodyColor(),
+            detailY = drawWrappedLine(guiGraphics, detailsX, detailY, DETAILS_PANEL_WIDTH, palette.bodyColor(),
                     Component.translatable("screen.xlib.progression_menu.none"));
         } else {
             for (Component rewardLine : rewards) {
                 detailY = drawWrappedLine(guiGraphics, detailsX, detailY, DETAILS_PANEL_WIDTH, palette.rewardColor(), rewardLine);
+            }
+        }
+
+        detailY = drawSectionHeader(guiGraphics, detailsX, detailY + 4, "screen.xlib.progression_menu.reward_details");
+        List<Component> rewardDescriptions = rewardDescriptionSummary(node);
+        if (rewardDescriptions.isEmpty()) {
+            drawWrappedLine(guiGraphics, detailsX, detailY, DETAILS_PANEL_WIDTH, palette.bodyColor(),
+                    Component.translatable("screen.xlib.progression_menu.none"));
+        } else {
+            for (Component rewardDescription : rewardDescriptions) {
+                detailY = drawWrappedLine(guiGraphics, detailsX, detailY, DETAILS_PANEL_WIDTH, palette.bodyColor(), rewardDescription);
             }
         }
 
@@ -802,22 +810,25 @@ public class ProgressionMenuScreen extends Screen {
     }
 
     private int canvasRowSpacing() {
-        return TREE_CANVAS_ROW_SPACING;
+        ProgressionTreeLayout layout = currentPresentation().treeLayout();
+        int labelBlockHeight = layout.labelGap() + layout.maxLabelLines() * layout.labelLineHeight();
+        return Math.max(layout.rowSpacing(), layout.nodeSize() + labelBlockHeight + 10);
     }
 
     private int canvasNodeSize() {
-        return TREE_CANVAS_NODE_SIZE;
+        return currentPresentation().treeLayout().nodeSize();
     }
 
     private int canvasColumnSpacing() {
+        ProgressionTreeLayout layout = currentPresentation().treeLayout();
         int columns = Math.max(1, this.nodeLayoutPlan.columnCount());
         if (columns <= 1) {
             return 0;
         }
         int usableWidth = Math.max(canvasNodeSize(), canvasInnerRight() - canvasInnerLeft());
-        int computedSpacing = Math.max(8, (usableWidth - canvasNodeSize()) / (columns - 1));
-        int targetSpacing = TREE_CANVAS_LABEL_WIDTH + 12;
-        return Math.max(8, Math.min(targetSpacing, computedSpacing));
+        int maxSpacing = Math.max(8, (usableWidth - canvasNodeSize()) / (columns - 1));
+        int preferredSpacing = Math.max(layout.columnSpacing(), resolvedTreeLabelWidth() + 12);
+        return Math.max(8, Math.min(preferredSpacing, maxSpacing));
     }
 
     private int canvasGridLeft() {
@@ -901,6 +912,8 @@ public class ProgressionMenuScreen extends Screen {
     }
 
     private List<String> wrappedTreeCanvasNodeLabel(UpgradeNodeDefinition node) {
+        int maxWidth = resolvedTreeLabelWidth();
+        int maxLines = currentPresentation().treeLayout().maxLabelLines();
         String label = node.displayName().getString().trim();
         if (label.isEmpty()) {
             return List.of();
@@ -912,13 +925,13 @@ public class ProgressionMenuScreen extends Screen {
         for (int index = 0; index < words.length; index++) {
             String word = words[index];
             String candidate = currentLine.length() == 0 ? word : currentLine + " " + word;
-            if (this.font.width(candidate) <= TREE_CANVAS_LABEL_WIDTH) {
+            if (this.font.width(candidate) <= maxWidth) {
                 currentLine.setLength(0);
                 currentLine.append(candidate);
                 continue;
             }
 
-            if (lines.size() == TREE_CANVAS_MAX_LABEL_LINES - 1) {
+            if (lines.size() == maxLines - 1) {
                 StringBuilder remaining = new StringBuilder(currentLine);
                 if (remaining.length() > 0) {
                     remaining.append(' ');
@@ -927,12 +940,12 @@ public class ProgressionMenuScreen extends Screen {
                 for (int remainingIndex = index + 1; remainingIndex < words.length; remainingIndex++) {
                     remaining.append(' ').append(words[remainingIndex]);
                 }
-                lines.add(ellipsizeToWidth(remaining.toString(), TREE_CANVAS_LABEL_WIDTH));
+                lines.add(ellipsizeToWidth(remaining.toString(), maxWidth));
                 return List.copyOf(lines);
             }
 
             if (currentLine.length() == 0) {
-                lines.add(ellipsizeToWidth(word, TREE_CANVAS_LABEL_WIDTH));
+                lines.add(ellipsizeToWidth(word, maxWidth));
             } else {
                 lines.add(currentLine.toString());
                 currentLine.setLength(0);
@@ -1126,11 +1139,12 @@ public class ProgressionMenuScreen extends Screen {
             boolean selected
     ) {
         int centerX = canvasNodeCenterX(entry);
-        int y = canvasNodeY(entry) + canvasNodeSize() + 4;
+        ProgressionTreeLayout layout = currentPresentation().treeLayout();
+        int y = canvasNodeY(entry) + canvasNodeSize() + layout.labelGap();
         int color = selected ? palette.titleColor() : palette.bodyColor();
         List<String> lines = wrappedTreeCanvasNodeLabel(entry.node());
         for (int index = 0; index < lines.size(); index++) {
-            guiGraphics.drawCenteredString(this.font, lines.get(index), centerX, y + index * TREE_CANVAS_LABEL_LINE_HEIGHT, color);
+            guiGraphics.drawCenteredString(this.font, lines.get(index), centerX, y + index * layout.labelLineHeight(), color);
         }
     }
 
@@ -1160,7 +1174,7 @@ public class ProgressionMenuScreen extends Screen {
             }
         }
         for (ResourceLocation passiveId : sortedIds(node.rewards().passives())) {
-            Optional<com.whatxe.xlib.ability.PassiveDefinition> passive = PassiveApi.findPassive(passiveId);
+            Optional<PassiveDefinition> passive = PassiveApi.findPassive(passiveId);
             if (passive.isPresent()) {
                 return passive.get().icon();
             }
@@ -1335,6 +1349,31 @@ public class ProgressionMenuScreen extends Screen {
         return rewards;
     }
 
+    private List<Component> rewardDescriptionSummary(UpgradeNodeDefinition node) {
+        List<Component> descriptions = new ArrayList<>();
+        node.rewards().abilities().stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(abilityId ->
+                AbilityApi.findAbility(abilityId).ifPresent(ability -> descriptions.add(
+                        Component.literal("- ")
+                                .append(ability.displayName())
+                                .append(Component.literal(": "))
+                                .append(describedComponent(ability.displayName(), ability.translationKey() + ".desc"))
+                )));
+        node.rewards().passives().stream().sorted(Comparator.comparing(ResourceLocation::toString)).forEach(passiveId ->
+                PassiveApi.findPassive(passiveId).ifPresent(passive -> descriptions.add(
+                        Component.literal("- ")
+                                .append(passive.displayName())
+                                .append(Component.literal(": "))
+                                .append(describedComponent(passive.displayName(), passive.translationKey() + ".desc"))
+                )));
+        return descriptions;
+    }
+
+    private Component describedComponent(Component displayName, String translationKey) {
+        return Language.getInstance().has(translationKey)
+                ? Component.translatable(translationKey)
+                : Component.translatable("screen.xlib.progression_menu.no_description", displayName);
+    }
+
     private int drawTrackMetadata(int x, int startY, GuiGraphics guiGraphics) {
         ResourceLocation trackId = currentTrackView().trackId();
         if (trackId == null) {
@@ -1466,6 +1505,18 @@ public class ProgressionMenuScreen extends Screen {
 
     private static int withAlpha(int color, int alpha) {
         return (Mth.clamp(alpha, 0, 255) << 24) | (color & 0x00FFFFFF);
+    }
+
+    private int resolvedTreeLabelWidth() {
+        ProgressionTreeLayout layout = currentPresentation().treeLayout();
+        int columns = Math.max(1, this.nodeLayoutPlan.columnCount());
+        int availableWidth = Math.max(36, canvasInnerRight() - canvasInnerLeft());
+        if (columns <= 1) {
+            return Math.min(layout.labelWidth(), availableWidth);
+        }
+        int usableWidth = Math.max(canvasNodeSize(), availableWidth);
+        int maxSpacing = Math.max(8, (usableWidth - canvasNodeSize()) / (columns - 1));
+        return Math.max(36, Math.min(layout.labelWidth(), Math.max(36, maxSpacing - 12)));
     }
 
     private static int scaleColor(int color, float factor) {

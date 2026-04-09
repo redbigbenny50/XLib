@@ -40,10 +40,17 @@ class PresentationApiTest {
 
     @Test
     void progressionPresentationsExposeLayoutPolicies() {
+        ProgressionTreeLayout treeLayout = ProgressionTreeLayout.builder()
+                .columnSpacing(168)
+                .rowSpacing(112)
+                .labelWidth(132)
+                .maxLabelLines(4)
+                .build();
         ProgressionMenuPresentation custom = ProgressionMenuPresentation.builder(CUSTOM_PROGRESSION_MENU_ID)
                 .defaultLayoutMode(ProgressionNodeLayoutMode.TREE)
                 .availableLayoutModes(java.util.Set.of(ProgressionNodeLayoutMode.LIST, ProgressionNodeLayoutMode.TREE))
                 .showPointSourceHints(false)
+                .treeLayout(treeLayout)
                 .build();
 
         ProgressionMenuPresentationApi.register(custom);
@@ -54,6 +61,10 @@ class PresentationApiTest {
         assertTrue(active.availableLayoutModes().contains(ProgressionNodeLayoutMode.LIST));
         assertTrue(active.availableLayoutModes().contains(ProgressionNodeLayoutMode.TREE));
         assertFalse(active.showPointSourceHints());
+        assertEquals(168, active.treeLayout().columnSpacing());
+        assertEquals(112, active.treeLayout().rowSpacing());
+        assertEquals(132, active.treeLayout().labelWidth());
+        assertEquals(4, active.treeLayout().maxLabelLines());
     }
 
     @Test
