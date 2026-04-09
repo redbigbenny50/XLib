@@ -261,6 +261,7 @@ The built-in progression screen supports:
 - track switching and all-tracks view
 - a top-row layout mode switcher for list and tree presentation
 - list mode plus an icon-node skill-tree canvas for tree mode
+- reward descriptions for ability/passive rewards on the selected node
 - point balances and counters
 - node browsing
 - choice-group and branch-lock details
@@ -272,7 +273,7 @@ The built-in progression screen supports:
 - point-source hints through `upgrade_point.<namespace>.<path>.desc`
 - shared session-state handoff for selected track, selected node, and layout mode through `ProgressionMenuSessionStateApi` and `ProgressionMenuScreenContext`
 
-The tree layout now uses icon-based node tiles with explicit branch pathing, centered node placement, and wrapped labels under each node for a more classic skill-tree read. `LIST` remains the compact fallback for simple browsing. Both are still bounded menu presentations rather than free-pan or zoomable editor canvases.
+The tree layout now uses icon-based node tiles with explicit branch pathing, centered node placement, and wrapped labels under each node for a more classic skill-tree read. `LIST` remains the compact fallback for simple browsing. Both are still bounded menu presentations rather than free-pan or zoomable editor canvases, but addons can now tune tree node spacing, label width, label line count, and node size through `ProgressionTreeLayout` when they need larger names to breathe.
 
 ## Progression Menu Presentation Profiles
 
@@ -285,6 +286,12 @@ ProgressionMenuPresentationApi.register(ProgressionMenuPresentation.builder(tree
                 ProgressionNodeLayoutMode.LIST,
                 ProgressionNodeLayoutMode.TREE
         ))
+        .treeLayout(ProgressionTreeLayout.builder()
+                .columnSpacing(160)
+                .rowSpacing(108)
+                .labelWidth(132)
+                .maxLabelLines(4)
+                .build())
         .showPointSourceHints(false)
         .build());
 
@@ -293,6 +300,8 @@ ProgressionMenuPresentationApi.activate(treeMenuId);
 
 Use `availableLayoutModes(Set.of(ProgressionNodeLayoutMode.TREE))` for a tree-only built-in screen, `Set.of(ProgressionNodeLayoutMode.LIST)` for a list-only screen, or both when players should be allowed to switch. The built-in layout button only appears when more than one mode is exposed.
 
+Use `treeLayout(...)` when your addon wants the stock tree view but needs wider spacing or more wrapping room for long node names instead of forking the whole screen.
+
 Useful helpers:
 
 - `ProgressionMenuPresentationApi.register(...)`
@@ -300,6 +309,7 @@ Useful helpers:
 - `ProgressionMenuPresentationApi.find(...)`
 - `ProgressionNodeLayoutMode.LIST`
 - `ProgressionNodeLayoutMode.TREE`
+- `ProgressionTreeLayout.builder()`
 - `ProgressionLayoutPlanner.plan(...)`
 
 ## Progression Menu Access Policies

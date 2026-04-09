@@ -13,7 +13,8 @@ public record ProgressionMenuPresentation(
         boolean showTrackMetadata,
         boolean showPointSourceHints,
         ProgressionNodeLayoutMode defaultLayoutMode,
-        Set<ProgressionNodeLayoutMode> availableLayoutModes
+        Set<ProgressionNodeLayoutMode> availableLayoutModes,
+        ProgressionTreeLayout treeLayout
 ) {
     public ProgressionMenuPresentation {
         Objects.requireNonNull(id, "id");
@@ -21,6 +22,7 @@ public record ProgressionMenuPresentation(
         Objects.requireNonNull(nodeLabelMode, "nodeLabelMode");
         Objects.requireNonNull(defaultLayoutMode, "defaultLayoutMode");
         Objects.requireNonNull(availableLayoutModes, "availableLayoutModes");
+        Objects.requireNonNull(treeLayout, "treeLayout");
         if (!availableLayoutModes.contains(defaultLayoutMode)) {
             throw new IllegalStateException("defaultLayoutMode must be included in availableLayoutModes");
         }
@@ -52,6 +54,7 @@ public record ProgressionMenuPresentation(
                 ProgressionNodeLayoutMode.LIST,
                 ProgressionNodeLayoutMode.TREE
         );
+        private ProgressionTreeLayout treeLayout = ProgressionTreeLayout.defaultLayout();
 
         private Builder(ResourceLocation id) {
             this.id = Objects.requireNonNull(id, "id");
@@ -87,6 +90,11 @@ public record ProgressionMenuPresentation(
             return this;
         }
 
+        public Builder treeLayout(ProgressionTreeLayout treeLayout) {
+            this.treeLayout = Objects.requireNonNull(treeLayout, "treeLayout");
+            return this;
+        }
+
         public ProgressionMenuPresentation build() {
             return new ProgressionMenuPresentation(
                     this.id,
@@ -95,7 +103,8 @@ public record ProgressionMenuPresentation(
                     this.showTrackMetadata,
                     this.showPointSourceHints,
                     this.defaultLayoutMode,
-                    this.availableLayoutModes
+                    this.availableLayoutModes,
+                    this.treeLayout
             );
         }
     }

@@ -53,6 +53,7 @@ XLib ships reusable APIs and runtime systems for:
 
 - combat bar / loadout UI with a remappable combat-bar toggle keybind
 - player-authored mode-specific presets
+- built-in passive browser inside the ability menu
 - icon-driven progression menu with list and tree views
 - configurable resource HUD rendering
 
@@ -63,6 +64,7 @@ XLib ships reusable APIs and runtime systems for:
 - XLib now includes persistent profile groups, required onboarding selection flows, identity and grant-bundle projection, artifact unlocks, and profile-backed progression starting nodes.
 - Addons can keep the built-in HUD and menus while authoring primary-bar layouts, control profiles, player-rebindable key mappings, optional quick-switch behavior, and per-resource HUD placement rules.
 - The built-in client layer now supports replaceable ability/progression/profile screens, replaceable combat HUD renderers, and shared session-state handoff for custom navigation.
+- The built-in menus now include a passive browser in the ability screen plus progression-node reward descriptions, and progression presentations can tune tree node spacing, label width, and wrap depth for larger skill names.
 - Progression now includes list/tree built-in presentations, choice-group specialization, explicit node/track locks, identity rewards, and identity-gated follow-up paths.
 
 ## Commands

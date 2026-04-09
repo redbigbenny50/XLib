@@ -15,6 +15,8 @@ import com.whatxe.xlib.ability.AbilitySlotContainerDefinition;
 import com.whatxe.xlib.ability.AbilitySlotReference;
 import com.whatxe.xlib.ability.ModeApi;
 import com.whatxe.xlib.ability.ModeDefinition;
+import com.whatxe.xlib.ability.PassiveApi;
+import com.whatxe.xlib.ability.PassiveDefinition;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.client.AbilityMenuScreenContext;
 import com.whatxe.xlib.client.AbilityMenuSessionState;
@@ -51,6 +53,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
@@ -80,16 +83,22 @@ public class AbilityMenuScreen extends Screen {
     private static final int FOOTER_BUTTON_SPACING = 26;
     private static final int PAGE_TAB_WIDTH = 18;
     private static final int PAGE_TAB_HEIGHT = 16;
+    private static final int PASSIVE_PANEL_HEIGHT = 68;
+    private static final int PASSIVE_ROW_HEIGHT = 18;
+    private static final int PASSIVE_VISIBLE_ROWS = 2;
+    private static final int PASSIVE_ICON_SIZE = 14;
 
     private final List<Button> slotButtons = new ArrayList<>();
     private final List<Button> pageTabButtons = new ArrayList<>();
     private final List<Button> abilityButtons = new ArrayList<>();
     private List<AbilityDefinition> visibleAbilities = List.of();
+    private List<PassiveDefinition> visiblePassives = List.of();
     private List<AbilityDefinition> catalogAbilities = List.of();
     private List<ResourceLocation> editableModeIds = List.of();
     private List<ResourceLocation> editableContainerIds = List.of();
     private int selectedSlot = 0;
     private int abilityScrollOffset = 0;
+    private int passiveScrollOffset = 0;
     private int visibleAbilityButtonCount = MIN_VISIBLE_ABILITY_BUTTONS;
     private int abilityButtonX;
     private Button clearSlotButton;
@@ -124,6 +133,7 @@ public class AbilityMenuScreen extends Screen {
     private MenuAccessDecision currentMenuAccess = MenuAccessDecision.available();
     private MenuAccessDecision currentProgressionMenuAccess = MenuAccessDecision.available();
     private AbilityLoadoutFeatureDecision currentLoadoutFeatureDecision = AbilityLoadoutFeatureDecision.disabled();
+    private @Nullable ResourceLocation selectedPassiveId;
 
     public AbilityMenuScreen() {
         this(AbilityMenuScreenContext.defaultContext());
@@ -313,8 +323,12 @@ public class AbilityMenuScreen extends Screen {
                 .map(AbilityDefinition::description)
                 .orElse(Component.translatable("screen.xlib.empty_slot_desc"));
         int descriptionY = Math.max(detailsPanelY + 28, metadataY + 4);
+        int detailBottom = detailSectionBottom();
         Player player = currentPlayer();
         for (FormattedCharSequence line : this.font.split(description, DETAILS_PANEL_WIDTH)) {
+            if (!hasDetailRoom(descriptionY, detailBottom)) {
+                break;
+            }
             guiGraphics.drawString(this.font, line, detailsX, descriptionY, palette.bodyColor(), false);
             descriptionY += 10;
         }
@@ -322,7 +336,7 @@ public class AbilityMenuScreen extends Screen {
         descriptionY += 6;
         if (selectedAbility.isPresent()) {
             AbilityDefinition ability = selectedAbility.get();
-            if (ability.usesCharges()) {
+            if (ability.usesCharges() && hasDetailRoom(descriptionY, detailBottom)) {
                 Component charges = Component.translatable(
                         "screen.xlib.ability_charges_stat",
                         data.chargeCountFor(ability.id(), ability.maxCharges()),
@@ -330,7 +344,7 @@ public class AbilityMenuScreen extends Screen {
                 );
                 guiGraphics.drawString(this.font, charges, detailsX, descriptionY, palette.emphasisColor(), false);
                 descriptionY += 10;
-            } else if (ability.cooldownTicks() > 0) {
+            } else if (ability.cooldownTicks() > 0 && hasDetailRoom(descriptionY, detailBottom)) {
                 Component cooldown = Component.translatable(
                         "screen.xlib.ability_cooldown_stat",
                         formatSeconds(ability.cooldownTicks())
@@ -339,7 +353,7 @@ public class AbilityMenuScreen extends Screen {
                 descriptionY += 10;
             }
 
-            if (ability.toggleAbility() && ability.durationTicks() > 0) {
+            if (ability.toggleAbility() && ability.durationTicks() > 0 && hasDetailRoom(descriptionY, detailBottom)) {
                 Component duration = Component.translatable(
                         "screen.xlib.ability_duration_stat",
                         formatSeconds(ability.durationTicks())
@@ -349,6 +363,9 @@ public class AbilityMenuScreen extends Screen {
             }
 
             for (AbilityResourceCost cost : ability.resourceCosts()) {
+                if (!hasDetailRoom(descriptionY, detailBottom)) {
+                    break;
+                }
                 Optional<AbilityResourceDefinition> resource = AbilityApi.findResource(cost.resourceId());
                 Component costLine = Component.translatable(
                         "screen.xlib.ability_cost_stat",
@@ -361,23 +378,25 @@ public class AbilityMenuScreen extends Screen {
 
             if (presentation.showMetadataDetails()) {
                 descriptionY = appendOptionalMetadataLine(guiGraphics, detailsX, descriptionY, ability.familyId(),
-                        "screen.xlib.ability_family_stat", palette.familyColor());
+                        "screen.xlib.ability_family_stat", palette.familyColor(), detailBottom);
                 descriptionY = appendOptionalMetadataLine(guiGraphics, detailsX, descriptionY, ability.groupId(),
-                        "screen.xlib.ability_group_stat", palette.groupColor());
+                        "screen.xlib.ability_group_stat", palette.groupColor(), detailBottom);
                 descriptionY = appendOptionalMetadataLine(guiGraphics, detailsX, descriptionY, ability.pageId(),
-                        "screen.xlib.ability_page_stat", palette.pageColor());
-                descriptionY = appendTagLine(guiGraphics, detailsX, descriptionY, ability.tags(), palette.tagColor());
+                        "screen.xlib.ability_page_stat", palette.pageColor(), detailBottom);
+                descriptionY = appendTagLine(guiGraphics, detailsX, descriptionY, ability.tags(), palette.tagColor(), detailBottom);
             }
 
             if (presentation.showRequirementBreakdown()) {
                 descriptionY = appendRequirementLines(guiGraphics, detailsX, descriptionY, player, data, ability.assignRequirements(),
-                        "screen.xlib.ability_assign_requirement_stat", palette.emphasisColor());
+                        "screen.xlib.ability_assign_requirement_stat", palette.emphasisColor(), detailBottom);
                 descriptionY = appendRequirementLines(guiGraphics, detailsX, descriptionY, player, data, ability.activateRequirements(),
-                        "screen.xlib.ability_activate_requirement_stat", palette.requirementColor());
+                        "screen.xlib.ability_activate_requirement_stat", palette.requirementColor(), detailBottom);
                 descriptionY = appendRequirementLines(guiGraphics, detailsX, descriptionY, player, data, ability.stayActiveRequirements(),
-                        "screen.xlib.ability_sustain_requirement_stat", palette.infoColor());
+                        "screen.xlib.ability_sustain_requirement_stat", palette.infoColor(), detailBottom);
             }
         }
+
+        renderPassivePanel(guiGraphics, palette);
 
         renderAbilityButtonIcons(guiGraphics);
 
@@ -388,12 +407,26 @@ public class AbilityMenuScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (isMouseOverPassivePanel(mouseX, mouseY) && maxPassiveScrollOffset() > 0) {
+            this.passiveScrollOffset = Mth.clamp(this.passiveScrollOffset + (scrollY < 0 ? 1 : -1), 0, maxPassiveScrollOffset());
+            return true;
+        }
         if (isMouseOverAbilityList(mouseX, mouseY) && maxAbilityScrollOffset() > 0) {
             scrollAbilityList(scrollY < 0 ? 1 : -1);
             return true;
         }
 
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int passiveIndex = passiveIndexAt(mouseX, mouseY);
+        if (passiveIndex >= 0 && passiveIndex < this.visiblePassives.size()) {
+            this.selectedPassiveId = this.visiblePassives.get(passiveIndex).id();
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void buildMenuWidgets() {
@@ -568,6 +601,10 @@ public class AbilityMenuScreen extends Screen {
         return Mth.clamp(visibleCount, MIN_VISIBLE_ABILITY_BUTTONS, MAX_VISIBLE_ABILITY_BUTTONS);
     }
 
+    private int maxPassiveScrollOffset() {
+        return Math.max(0, this.visiblePassives.size() - PASSIVE_VISIBLE_ROWS);
+    }
+
     private int maxAbilityScrollOffset() {
         return Math.max(0, this.visibleAbilities.size() - this.visibleAbilityButtonCount);
     }
@@ -604,6 +641,19 @@ public class AbilityMenuScreen extends Screen {
 
     private int abilityPanelBottom() {
         return this.clearSlotButton != null ? this.clearSlotButton.getY() + 26 : abilityListY() + 90;
+    }
+
+    private int passivePanelTop() {
+        int panelBottom = passivePanelBottom();
+        return panelBottom - PASSIVE_PANEL_HEIGHT;
+    }
+
+    private int passivePanelBottom() {
+        return this.cycleLoadoutButton != null ? this.cycleLoadoutButton.getY() - 8 : abilityPanelBottom() - 8;
+    }
+
+    private int detailSectionBottom() {
+        return passivePanelTop() - 6;
     }
 
     private void assignAbility(Optional<ResourceLocation> abilityId) {
@@ -714,6 +764,10 @@ public class AbilityMenuScreen extends Screen {
         return slotMetadata(this.selectedSlot).softLocked();
     }
 
+    private boolean hasDetailRoom(int y, int maxY) {
+        return y + 9 <= maxY;
+    }
+
     private String slotButtonLabel(int slotIndex) {
         AbilitySlotWidgetMetadata metadata = slotMetadata(slotIndex);
         String label = metadata.shortLabel() != null && !metadata.shortLabel().getString().isBlank()
@@ -782,6 +836,7 @@ public class AbilityMenuScreen extends Screen {
         refreshAccessState();
         if (player == null) {
             this.visibleAbilities = List.of();
+            this.visiblePassives = List.of();
             this.catalogAbilities = List.of();
             this.editableModeIds = List.of();
             this.editableContainerIds = List.of(AbilitySlotContainerApi.PRIMARY_CONTAINER_ID);
@@ -796,6 +851,8 @@ public class AbilityMenuScreen extends Screen {
             this.cachedContainerPage = this.selectedContainerPage;
             this.selectedContainerId = AbilitySlotContainerApi.PRIMARY_CONTAINER_ID;
             this.selectedContainerPage = 0;
+            this.selectedPassiveId = null;
+            this.passiveScrollOffset = 0;
             syncSessionState();
             return;
         }
@@ -838,6 +895,16 @@ public class AbilityMenuScreen extends Screen {
             filteredAbilities.add(ability);
         }
         this.catalogAbilities = List.copyOf(filteredAbilities);
+        this.visiblePassives = data.grantedPassives().stream()
+                .map(PassiveApi::findPassive)
+                .flatMap(Optional::stream)
+                .sorted(Comparator.comparing((PassiveDefinition passive) -> passive.displayName().getString().toLowerCase(Locale.ROOT))
+                        .thenComparing(passive -> passive.id().toString()))
+                .toList();
+        if (this.selectedPassiveId == null || this.visiblePassives.stream().noneMatch(passive -> passive.id().equals(this.selectedPassiveId))) {
+            this.selectedPassiveId = this.visiblePassives.isEmpty() ? null : this.visiblePassives.getFirst().id();
+        }
+        this.passiveScrollOffset = Mth.clamp(this.passiveScrollOffset, 0, maxPassiveScrollOffset());
         AbilityMenuCatalog.Scope scope = AbilityMenuCatalog.sanitizeScope(
                 this.catalogAbilities,
                 new AbilityMenuCatalog.Scope(this.selectedPageId, this.selectedGroupId, this.selectedFamilyId)
@@ -1024,6 +1091,20 @@ public class AbilityMenuScreen extends Screen {
             String translationKey,
             int color
     ) {
+        return appendRequirementLines(guiGraphics, x, startY, player, data, requirements, translationKey, color, Integer.MAX_VALUE);
+    }
+
+    private int appendRequirementLines(
+            GuiGraphics guiGraphics,
+            int x,
+            int startY,
+            Player player,
+            AbilityData data,
+            List<AbilityRequirement> requirements,
+            String translationKey,
+            int color,
+            int maxY
+    ) {
         int y = startY;
         for (AbilityRequirement requirement : requirements) {
             Optional<Component> failure = requirement.validate(player, data);
@@ -1033,6 +1114,9 @@ public class AbilityMenuScreen extends Screen {
 
             Component requirementLine = Component.translatable(translationKey, failure.get());
             for (FormattedCharSequence line : this.font.split(requirementLine, DETAILS_PANEL_WIDTH)) {
+                if (!hasDetailRoom(y, maxY)) {
+                    return y;
+                }
                 guiGraphics.drawString(this.font, line, x, y, color, false);
                 y += 10;
             }
@@ -1048,10 +1132,22 @@ public class AbilityMenuScreen extends Screen {
             String translationKey,
             int color
     ) {
+        return appendOptionalMetadataLine(guiGraphics, x, startY, maybeId, translationKey, color, Integer.MAX_VALUE);
+    }
+
+    private int appendOptionalMetadataLine(
+            GuiGraphics guiGraphics,
+            int x,
+            int startY,
+            Optional<ResourceLocation> maybeId,
+            String translationKey,
+            int color,
+            int maxY
+    ) {
         if (maybeId.isEmpty()) {
             return startY;
         }
-        return appendWrappedLine(guiGraphics, x, startY, Component.translatable(translationKey, Component.literal(displayMetadataLabel(maybeId.get()))), color);
+        return appendWrappedLine(guiGraphics, x, startY, Component.translatable(translationKey, Component.literal(displayMetadataLabel(maybeId.get()))), color, maxY);
     }
 
     private int appendSlotMetadataLine(
@@ -1086,6 +1182,17 @@ public class AbilityMenuScreen extends Screen {
             Set<ResourceLocation> tags,
             int color
     ) {
+        return appendTagLine(guiGraphics, x, startY, tags, color, Integer.MAX_VALUE);
+    }
+
+    private int appendTagLine(
+            GuiGraphics guiGraphics,
+            int x,
+            int startY,
+            Set<ResourceLocation> tags,
+            int color,
+            int maxY
+    ) {
         if (tags.isEmpty()) {
             return startY;
         }
@@ -1094,13 +1201,21 @@ public class AbilityMenuScreen extends Screen {
                 x,
                 startY,
                 Component.translatable("screen.xlib.ability_tags_stat", Component.literal(joinIds(tags))),
-                color
+                color,
+                maxY
         );
     }
 
     private int appendWrappedLine(GuiGraphics guiGraphics, int x, int startY, Component line, int color) {
+        return appendWrappedLine(guiGraphics, x, startY, line, color, Integer.MAX_VALUE);
+    }
+
+    private int appendWrappedLine(GuiGraphics guiGraphics, int x, int startY, Component line, int color, int maxY) {
         int y = startY;
         for (FormattedCharSequence wrappedLine : this.font.split(line, DETAILS_PANEL_WIDTH)) {
+            if (!hasDetailRoom(y, maxY)) {
+                return y;
+            }
             guiGraphics.drawString(this.font, wrappedLine, x, y, color, false);
             y += 10;
         }
@@ -1160,6 +1275,122 @@ public class AbilityMenuScreen extends Screen {
             AbilityDefinition ability = this.visibleAbilities.get(abilityIndex);
             AbilityIconRenderer.render(guiGraphics, this.minecraft, ability.icon(), button.getX() + 3, button.getY() + 2, 16, 16);
         }
+    }
+
+    private void renderPassivePanel(GuiGraphics guiGraphics, MenuPalette palette) {
+        int panelX = this.width / 2 - DETAILS_PANEL_X_OFFSET;
+        int top = passivePanelTop();
+        int bottom = passivePanelBottom();
+        int right = panelX + DETAILS_PANEL_WIDTH;
+        guiGraphics.fill(panelX - 4, top - 4, right + 4, bottom + 4, withAlpha(palette.secondaryPanelColor(), 0xC8));
+        guiGraphics.drawString(this.font, Component.translatable("screen.xlib.passive_panel", this.visiblePassives.size()), panelX, top, palette.titleColor(), false);
+
+        List<PassiveDefinition> displayedPassives = displayedPassives();
+        int listY = top + 14;
+        for (int index = 0; index < displayedPassives.size(); index++) {
+            PassiveDefinition passive = displayedPassives.get(index);
+            int rowY = listY + index * PASSIVE_ROW_HEIGHT;
+            boolean selected = passive.id().equals(this.selectedPassiveId);
+            PassiveState passiveState = passiveState(passive);
+            if (selected) {
+                guiGraphics.fill(panelX - 2, rowY - 1, right + 2, rowY + PASSIVE_ROW_HEIGHT - 2, withAlpha(palette.highlightColor(), 0x34));
+            }
+            if (this.minecraft != null) {
+                AbilityIconRenderer.render(guiGraphics, this.minecraft, passive.icon(), panelX + 1, rowY + 1, PASSIVE_ICON_SIZE, PASSIVE_ICON_SIZE);
+            }
+            String stateLabel = passiveState.label().getString();
+            int stateWidth = this.font.width(stateLabel);
+            int nameWidth = Math.max(18, DETAILS_PANEL_WIDTH - PASSIVE_ICON_SIZE - 10 - stateWidth - 6);
+            String name = this.font.plainSubstrByWidth(passive.displayName().getString(), nameWidth);
+            guiGraphics.drawString(this.font, name, panelX + PASSIVE_ICON_SIZE + 6, rowY + 4, palette.bodyColor(), false);
+            guiGraphics.drawString(this.font, stateLabel, right - stateWidth, rowY + 4, passiveState.color(), false);
+        }
+
+        int previewY = top + 14 + PASSIVE_VISIBLE_ROWS * PASSIVE_ROW_HEIGHT + 2;
+        PassiveDefinition selectedPassive = selectedPassive();
+        Component preview = selectedPassive == null
+                ? Component.translatable("screen.xlib.passive_panel.none")
+                : selectedPassiveDescription(selectedPassive);
+        int previewColor = selectedPassive == null ? palette.bodyColor() : passiveState(selectedPassive).color();
+        for (FormattedCharSequence line : this.font.split(preview, DETAILS_PANEL_WIDTH)) {
+            guiGraphics.drawString(this.font, line, panelX, previewY, previewColor, false);
+            break;
+        }
+
+        if (maxPassiveScrollOffset() > 0) {
+            renderPassiveScrollBar(guiGraphics, panelX, listY, palette);
+        }
+    }
+
+    private void renderPassiveScrollBar(GuiGraphics guiGraphics, int panelX, int listY, MenuPalette palette) {
+        int trackX = panelX + DETAILS_PANEL_WIDTH + 2;
+        int trackHeight = PASSIVE_VISIBLE_ROWS * PASSIVE_ROW_HEIGHT - 2;
+        int thumbHeight = Math.max(8, trackHeight * PASSIVE_VISIBLE_ROWS / this.visiblePassives.size());
+        int thumbTravel = Math.max(0, trackHeight - thumbHeight);
+        int thumbY = listY + (maxPassiveScrollOffset() == 0 ? 0
+                : Math.round((float) this.passiveScrollOffset / maxPassiveScrollOffset() * thumbTravel));
+        guiGraphics.fill(trackX, listY, trackX + 3, listY + trackHeight, palette.scrollbarTrackColor());
+        guiGraphics.fill(trackX, thumbY, trackX + 3, thumbY + thumbHeight, palette.scrollbarThumbColor());
+    }
+
+    private List<PassiveDefinition> displayedPassives() {
+        int fromIndex = Math.min(this.passiveScrollOffset, this.visiblePassives.size());
+        int toIndex = Math.min(this.visiblePassives.size(), fromIndex + PASSIVE_VISIBLE_ROWS);
+        return this.visiblePassives.subList(fromIndex, toIndex);
+    }
+
+    private int passiveIndexAt(double mouseX, double mouseY) {
+        if (!isMouseOverPassiveRows(mouseX, mouseY)) {
+            return -1;
+        }
+        int row = (int) ((mouseY - (passivePanelTop() + 14)) / PASSIVE_ROW_HEIGHT);
+        if (row < 0 || row >= PASSIVE_VISIBLE_ROWS) {
+            return -1;
+        }
+        int index = this.passiveScrollOffset + row;
+        return index < this.visiblePassives.size() ? index : -1;
+    }
+
+    private boolean isMouseOverPassivePanel(double mouseX, double mouseY) {
+        int left = this.width / 2 - DETAILS_PANEL_X_OFFSET - 4;
+        int right = left + DETAILS_PANEL_WIDTH + 8;
+        int top = passivePanelTop() - 4;
+        int bottom = passivePanelBottom() + 4;
+        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
+    }
+
+    private boolean isMouseOverPassiveRows(double mouseX, double mouseY) {
+        int left = this.width / 2 - DETAILS_PANEL_X_OFFSET - 4;
+        int right = left + DETAILS_PANEL_WIDTH + 8;
+        int top = passivePanelTop() + 12;
+        int bottom = top + PASSIVE_VISIBLE_ROWS * PASSIVE_ROW_HEIGHT;
+        return mouseX >= left && mouseX <= right && mouseY >= top && mouseY <= bottom;
+    }
+
+    private @Nullable PassiveDefinition selectedPassive() {
+        if (this.selectedPassiveId == null) {
+            return null;
+        }
+        return this.visiblePassives.stream()
+                .filter(passive -> passive.id().equals(this.selectedPassiveId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Component selectedPassiveDescription(PassiveDefinition passive) {
+        String descriptionKey = passive.translationKey() + ".desc";
+        return Language.getInstance().has(descriptionKey)
+                ? passive.description()
+                : Component.translatable("screen.xlib.passive_panel.no_description", passive.displayName());
+    }
+
+    private PassiveState passiveState(PassiveDefinition passive) {
+        Player player = currentPlayer();
+        MenuPalette palette = currentPresentation().palette();
+        if (player == null || passive.firstFailedActiveRequirement(player, currentData()).isPresent()) {
+            return new PassiveState(Component.translatable("screen.xlib.passive_state.paused"), palette.warningColor());
+        }
+        return new PassiveState(Component.translatable("screen.xlib.passive_state.active"), palette.successColor());
     }
 
     private void cycleFilter() {
@@ -1408,5 +1639,7 @@ public class AbilityMenuScreen extends Screen {
             return Component.translatable(this.translationKey);
         }
     }
+
+    private record PassiveState(Component label, int color) {}
 }
 
