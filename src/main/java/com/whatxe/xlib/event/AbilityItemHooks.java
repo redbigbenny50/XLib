@@ -4,6 +4,9 @@ import com.whatxe.xlib.XLib;
 import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityGrantApi;
 import com.whatxe.xlib.ability.AbilityGrantingItem;
+import com.whatxe.xlib.ability.AbilityRequirements;
+import com.whatxe.xlib.ability.ArtifactApi;
+import com.whatxe.xlib.ability.ArtifactDefinition;
 import com.whatxe.xlib.ability.ContextGrantApi;
 import com.whatxe.xlib.ability.ContextGrantSnapshot;
 import com.whatxe.xlib.ability.AbilityResourceRuntime;
@@ -11,11 +14,16 @@ import com.whatxe.xlib.ability.AbilityResourceApi;
 import com.whatxe.xlib.ability.AbilityResourceItem;
 import com.whatxe.xlib.ability.AbilityUnlockItem;
 import com.whatxe.xlib.ability.GrantedItemGrantApi;
+import com.whatxe.xlib.ability.GrantBundleApi;
 import com.whatxe.xlib.ability.GrantConditions;
 import com.whatxe.xlib.ability.ModeApi;
 import com.whatxe.xlib.ability.PassiveRuntime;
 import com.whatxe.xlib.ability.PassiveGrantApi;
 import com.whatxe.xlib.ability.RecipePermissionApi;
+import com.whatxe.xlib.ability.ReactiveRuntimeEvent;
+import com.whatxe.xlib.ability.ReactiveTriggerApi;
+import com.whatxe.xlib.ability.StatePolicyApi;
+import com.whatxe.xlib.ability.StateFlagApi;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.progression.UpgradeApi;
 import java.util.ArrayList;
@@ -27,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -89,6 +98,13 @@ public final class AbilityItemHooks {
             }
         }
 
+        for (ArtifactDefinition artifact : ArtifactApi.matchingArtifacts(usedStack)) {
+            if (artifact.unlockOnConsume()
+                    && AbilityRequirements.firstFailure(player, currentData, artifact.requirements()).isEmpty()) {
+                ArtifactApi.unlock(player, artifact.id());
+            }
+        }
+
         if (usedStack.getItem() instanceof AbilityResourceItem resourceItem) {
             if (GrantConditions.allMatch(player, currentData, usedStack, resourceItem.resourceConditions(usedStack, player))) {
                 for (Map.Entry<ResourceLocation, Integer> entry : resourceItem.resourceChanges(usedStack, player).entrySet()) {
@@ -101,8 +117,23 @@ public final class AbilityItemHooks {
             AbilityData updatedData = ModAttachments.get(player);
             updatedData = PassiveRuntime.onEat(player, updatedData, usedStack);
             updatedData = AbilityResourceRuntime.onEat(player, updatedData, usedStack);
+            updatedData = ReactiveTriggerApi.dispatch(
+                    player,
+                    updatedData,
+                    ReactiveRuntimeEvent.itemConsumed(BuiltInRegistries.ITEM.getKey(usedStack.getItem()))
+            );
             if (!updatedData.equals(ModAttachments.get(player))) {
                 ModAttachments.set(player, updatedData);
+            }
+        } else {
+            AbilityData currentReactiveData = ModAttachments.get(player);
+            AbilityData updatedReactiveData = ReactiveTriggerApi.dispatch(
+                    player,
+                    currentReactiveData,
+                    ReactiveRuntimeEvent.itemConsumed(BuiltInRegistries.ITEM.getKey(usedStack.getItem()))
+            );
+            if (!updatedReactiveData.equals(currentReactiveData)) {
+                ModAttachments.set(player, updatedReactiveData);
             }
         }
 
@@ -171,6 +202,9 @@ public final class AbilityItemHooks {
         Map<ResourceLocation, Set<ResourceLocation>> sourceGrantedItems = new LinkedHashMap<>();
         Map<ResourceLocation, Set<ResourceLocation>> sourceRecipePermissions = new LinkedHashMap<>();
         Map<ResourceLocation, Set<ResourceLocation>> sourceActivationBlocks = new LinkedHashMap<>();
+        Map<ResourceLocation, Set<ResourceLocation>> sourceStatePolicies = new LinkedHashMap<>();
+        Map<ResourceLocation, Set<ResourceLocation>> sourceStateFlags = new LinkedHashMap<>();
+        Map<ResourceLocation, Set<ResourceLocation>> sourceGrantBundles = new LinkedHashMap<>(ArtifactApi.activeBundlesBySource(player, currentData));
 
         collectGrantingItems(
                 player,
@@ -187,6 +221,8 @@ public final class AbilityItemHooks {
             mergeSourceValues(sourceGrantedItems, snapshot.sourceId(), snapshot.grantedItems());
             mergeSourceValues(sourceRecipePermissions, snapshot.sourceId(), snapshot.recipePermissions());
             mergeSourceValues(sourceActivationBlocks, snapshot.sourceId(), snapshot.blockedAbilities());
+            mergeSourceValues(sourceStatePolicies, snapshot.sourceId(), snapshot.statePolicies());
+            mergeSourceValues(sourceStateFlags, snapshot.sourceId(), snapshot.stateFlags());
         }
         for (ContextGrantSnapshot snapshot : ModeApi.collectSnapshots(currentData)) {
             mergeSourceValues(sourceAbilities, snapshot.sourceId(), snapshot.abilities());
@@ -194,6 +230,8 @@ public final class AbilityItemHooks {
             mergeSourceValues(sourceGrantedItems, snapshot.sourceId(), snapshot.grantedItems());
             mergeSourceValues(sourceRecipePermissions, snapshot.sourceId(), snapshot.recipePermissions());
             mergeSourceValues(sourceActivationBlocks, snapshot.sourceId(), snapshot.blockedAbilities());
+            mergeSourceValues(sourceStatePolicies, snapshot.sourceId(), snapshot.statePolicies());
+            mergeSourceValues(sourceStateFlags, snapshot.sourceId(), snapshot.stateFlags());
         }
 
         Set<ResourceLocation> seenSources = new LinkedHashSet<>();
@@ -217,8 +255,21 @@ public final class AbilityItemHooks {
             AbilityGrantApi.syncActivationBlocks(player, entry.getKey(), entry.getValue());
             seenSources.add(entry.getKey());
         }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : sourceStatePolicies.entrySet()) {
+            StatePolicyApi.syncSourcePolicies(player, entry.getKey(), entry.getValue());
+            seenSources.add(entry.getKey());
+        }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : sourceStateFlags.entrySet()) {
+            StateFlagApi.syncSourceFlags(player, entry.getKey(), entry.getValue());
+            seenSources.add(entry.getKey());
+        }
+        for (Map.Entry<ResourceLocation, Set<ResourceLocation>> entry : sourceGrantBundles.entrySet()) {
+            GrantBundleApi.syncSourceBundles(player, entry.getKey(), entry.getValue());
+            seenSources.add(entry.getKey());
+        }
 
         seenSources.addAll(UpgradeApi.activeRewardSources(player));
+        seenSources.addAll(ArtifactApi.activeUnlockSources(ModAttachments.get(player)));
         AbilityGrantApi.pruneManagedSources(player, seenSources);
     }
 

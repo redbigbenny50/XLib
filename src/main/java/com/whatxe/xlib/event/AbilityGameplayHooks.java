@@ -1,9 +1,12 @@
 package com.whatxe.xlib.event;
 
+import com.whatxe.xlib.ability.AbilityCombatTracker;
 import com.whatxe.xlib.XLib;
 import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityResourceRuntime;
 import com.whatxe.xlib.ability.PassiveRuntime;
+import com.whatxe.xlib.ability.ReactiveRuntimeEvent;
+import com.whatxe.xlib.ability.ReactiveTriggerApi;
 import com.whatxe.xlib.api.event.XLibIncomingDamageEvent;
 import com.whatxe.xlib.api.event.XLibOutgoingDamageEvent;
 import com.whatxe.xlib.attachment.ModAttachments;
@@ -15,6 +18,8 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -70,6 +75,7 @@ public final class AbilityGameplayHooks {
             AbilityData currentData = ModAttachments.get(player);
             AbilityData updatedData = AbilityResourceRuntime.onIncomingDamage(player, currentData, event.getSource(), damageAmount);
             updatedData = PassiveRuntime.onHurt(player, updatedData, event.getSource(), damageAmount.amount());
+            updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.hurt());
             if (!updatedData.equals(currentData)) {
                 ModAttachments.set(player, updatedData);
             }
@@ -94,6 +100,7 @@ public final class AbilityGameplayHooks {
 
         AbilityData currentData = ModAttachments.get(player);
         AbilityData updatedData = PassiveRuntime.onHit(player, currentData, target);
+        updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.hitConfirm(null));
         if (!updatedData.equals(currentData)) {
             ModAttachments.set(player, updatedData);
         }
@@ -119,6 +126,11 @@ public final class AbilityGameplayHooks {
         AbilityData currentData = ModAttachments.get(player);
         AbilityData updatedData = PassiveRuntime.onKill(player, currentData, target);
         updatedData = AbilityResourceRuntime.onKill(player, updatedData, target);
+        updatedData = ReactiveTriggerApi.dispatch(
+                player,
+                updatedData,
+                ReactiveRuntimeEvent.kill(AbilityCombatTracker.recentKillingAbility(player, target).orElse(null))
+        );
         if (!updatedData.equals(currentData)) {
             ModAttachments.set(player, updatedData);
         }
@@ -150,6 +162,7 @@ public final class AbilityGameplayHooks {
 
         AbilityData currentData = ModAttachments.get(player);
         AbilityData updatedData = PassiveRuntime.onJump(player, currentData);
+        updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.jump());
         if (!updatedData.equals(currentData)) {
             ModAttachments.set(player, updatedData);
         }
@@ -163,6 +176,7 @@ public final class AbilityGameplayHooks {
 
         AbilityData currentData = ModAttachments.get(player);
         AbilityData updatedData = PassiveRuntime.onBlockBreak(player, currentData, event.getState(), event.getPos());
+        updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.blockBreak());
         if (!updatedData.equals(currentData)) {
             ModAttachments.set(player, updatedData);
         }
@@ -188,6 +202,7 @@ public final class AbilityGameplayHooks {
             ItemStack to = currentSnapshot.item(slot);
             if (!ItemStack.matches(from, to)) {
                 updatedData = PassiveRuntime.onArmorChange(player, updatedData, slot, from, to);
+                updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.armorChanged(itemId(from), itemId(to)));
             }
         }
 
@@ -221,6 +236,10 @@ public final class AbilityGameplayHooks {
         private ItemStack item(EquipmentSlot slot) {
             return this.items.getOrDefault(slot, ItemStack.EMPTY);
         }
+    }
+
+    private static ResourceLocation itemId(ItemStack stack) {
+        return stack == null || stack.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(stack.getItem());
     }
 }
 

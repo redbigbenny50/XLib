@@ -9,61 +9,78 @@ It is architected as a framework mod for addon/content mods, not a standalone ga
 XLib ships reusable APIs and runtime systems for:
 
 - active combat abilities
-- player loadouts and per-mode loadout presets
+- addon-defined catalog metadata for abilities, passives, modes, granted items, restricted recipe content, upgrade tracks, and upgrade nodes
+- a primary combat bar, player-authored per-mode presets, and optional addon-enabled loadout-management surfaces
 - modes / forms / stances
 - combo follow-up windows and branching combo flows
 - passives
 - custom resource pools and first-class resource costs
+- composable requirement helpers and adapters across ability, contextual-grant, item-grant, and consume-rule authoring
 - cooldowns, charges, charge-release abilities, and cooldown scaling
+- authored control profiles, addon-owned key mappings, and source-specific input routing
 - source-tracked ability / passive / item / recipe grants
+- passive catalog/definition inspection plus focused passive/mode state debug summaries
 - managed granted items
 - recipe permission gates and selector-based recipe restrictions
 - optional progression / upgrade trees
-- built-in client UI for combat loadouts and progression
+- persistent profile groups, required-choice onboarding, and reset-aware selection state
+- built-in or replaceable client UI for combat, progression, onboarding, and custom HUD layouts
 - admin/debug commands
 - optional JEI / EMI recipe-viewer integration
 
 ## Major Systems
 
 - `AbilityDefinition` / `AbilityRuntime`
-  Active ability registration, activation, ticking, cooldowns, charges, charge-release helpers, and end handling.
+  Active ability registration, addon-defined catalog metadata, activation, ticking, cooldowns, charges, charge-release helpers, and end handling.
+- `PassiveDefinition` / `PassiveApi`
+  Passive registration, cooldown scaling hooks, event-driven passive behavior, authored-hook introspection, and shared metadata lookup helpers.
 - `ModeDefinition` / `ModeApi`
-  Stances/forms with overlays, explicit stackable modes, cycle groups, reset triggers, and cooldown scaling.
+  Stances/forms with overlays, explicit stackable modes, cycle groups, reset triggers, cooldown scaling, and shared metadata lookup helpers.
 - `ComboChainDefinition` / `ComboChainApi`
   Temporary follow-up windows, slot overrides, and branching combo follow-ups.
-- `GrantedItemDefinition` / `GrantedItemRuntime`
+- `GrantedItemDefinition` / `GrantedItemApi`
+  Managed-item registration with optional catalog metadata and lookup helpers.
+- `GrantedItemRuntime`
   Managed items with revoke cleanup, undroppable state, and external-storage policies.
 - `RecipePermissionApi`
-  Exact and selector-based recipe locks, advancement-backed unlocks, viewer sync, and runtime restrict/unrestrict support.
+  Exact and selector-based recipe locks, shared metadata lookups, advancement-backed unlocks, viewer sync, and runtime restrict/unrestrict support.
 - `UpgradeApi`
-  Optional progression nodes, point types, consume/kill rules, and reward projection into XLib's grant systems.
+  Optional progression tracks/nodes with shared metadata, point types, consume/kill rules, and reward projection into XLib's grant systems.
+- `AbilityRequirements` / `GrantConditions` / `ContextGrantConditions`
+  Shared authoring helpers for composable requirements and cross-surface reuse in abilities, contextual grants, item-driven grants, and consume rules.
 
 ## Included Client Features
 
-- combat bar / loadout UI
+- combat bar / loadout UI with a remappable combat-bar toggle keybind
 - player-authored mode-specific presets
-- progression menu
-- resource HUD rendering
+- icon-driven progression menu with list and tree views
+- configurable resource HUD rendering
 
 ## Commands
 
 XLib includes `/xlib` admin/debug surfaces for:
 
 - abilities
-- passives
+- passives, including catalog/describe/inspect
 - items
 - recipes
 - progression
-- debug / export / diff / counters
+- debug / state / export / diff / counters
 
 ## Documentation
 
 - `README.md`
   Top-level project summary.
+- `ROADMAP.md`
+  Dedicated summary of the currently discussed future direction and planned expansion areas.
+- `ROADMAP_2.md`
+  Second bundled planning pass covering the now-landed slot-composition, profile/onboarding, and compatibility/migration expansion work.
+- `ROADMAP_3.md`
+  Third bundled planning pass covering the next higher-level authored-asset, built-in UX, and optional tooling goals.
 - `docs/XLIB_USAGE_GUIDE.md`
   Wiki home for addon authors and release-facing documentation.
 - `docs/wiki/`
-  Topic pages for getting started, combat systems, unlock systems, progression, and testing.
+  Topic pages for getting started, whole-library status, combat systems, unlock systems, progression, and testing.
 - `docs/CODEBASE_MAP.md`
   Internal subsystem map for contributors and future maintenance.
 - `tools/Sync-GitHubWiki.ps1`

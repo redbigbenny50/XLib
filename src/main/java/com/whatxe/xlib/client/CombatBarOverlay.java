@@ -8,7 +8,12 @@ import com.whatxe.xlib.ability.AbilityGrantApi;
 import com.whatxe.xlib.ability.AbilityLoadoutApi;
 import com.whatxe.xlib.ability.AbilityResourceDefinition;
 import com.whatxe.xlib.ability.AbilityRuntime;
+import com.whatxe.xlib.ability.AbilitySlotContainerApi;
+import com.whatxe.xlib.ability.AbilitySlotContainerDefinition;
+import com.whatxe.xlib.ability.AbilitySlotReference;
 import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.presentation.CombatHudPresentation;
+import com.whatxe.xlib.presentation.CombatHudPresentationApi;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -26,10 +31,11 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 public final class CombatBarOverlay {
     private static final int HOTBAR_SIDE_GAP = 6;
     private static final int HOTBAR_VERTICAL_GAP = 3;
+    private static final int HUD_TOP_MARGIN = 26;
+    private static final int HUD_BOTTOM_MARGIN = 2;
+    private static final int HUD_STACK_GAP = 12;
     private static final ResourceLocation LAYER_ID =
             ResourceLocation.fromNamespaceAndPath(XLib.MODID, "combat_bar");
-    private static final ResourceLocation HOTBAR_SPRITE = ResourceLocation.withDefaultNamespace("hud/hotbar");
-    private static final ResourceLocation HOTBAR_SELECTION_SPRITE = ResourceLocation.withDefaultNamespace("hud/hotbar_selection");
     private static final AbilityResourceHudRegistration DEFAULT_RESOURCE_HUD =
             new AbilityResourceHudRegistration(null, AbilityResourceHudLayout.defaultLayout());
 
@@ -46,34 +52,101 @@ public final class CombatBarOverlay {
         }
 
         AbilityData data = ModAttachments.get(minecraft.player);
-        int centerX = guiGraphics.guiWidth() / 2;
-        int hotbarY = guiGraphics.guiHeight() - 22;
-        int highlightedSlot = AbilityClientState.highlightedSlot();
+        AbilitySlotReference highlightedSlot = AbilityClientState.highlightedSlot();
         boolean detailedHud = CombatBarPreferences.detailMode() == CombatBarPreferences.DetailMode.DETAILED;
+        CombatHudPresentation presentation = currentHudPresentation();
+        CombatHudRendererApi.renderActive(new CombatHudRenderContext(
+                guiGraphics,
+                deltaTracker,
+                minecraft,
+                data,
+                presentation,
+                highlightedSlot,
+                detailedHud
+        ));
+    }
 
-        guiGraphics.blitSprite(HOTBAR_SPRITE, centerX - 91, hotbarY, 182, 22);
-        if (highlightedSlot >= 0) {
-            guiGraphics.blitSprite(HOTBAR_SELECTION_SPRITE, centerX - 92 + highlightedSlot * 20, hotbarY - 1, 24, 23);
+    static void renderBuiltIn(CombatHudRenderContext context) {
+        GuiGraphics guiGraphics = context.guiGraphics();
+        Minecraft minecraft = context.minecraft();
+        AbilityData data = context.data();
+        CombatHudPresentation presentation = context.presentation();
+        AbilitySlotReference highlightedSlot = context.highlightedSlot();
+        boolean detailedHud = context.detailedHud();
+        int centerX = guiGraphics.guiWidth() / 2;
+        List<AbilitySlotContainerDefinition> visibleContainers = new ArrayList<>(
+                AbilitySlotContainerApi.visibleContainers(minecraft.player, data)
+        );
+        if (visibleContainers.isEmpty()) {
+            return;
         }
 
-        int labelCeilingY = renderResources(guiGraphics, data, centerX, hotbarY);
+        int bottomRowY = guiGraphics.guiHeight() - 22;
+        renderResources(guiGraphics, data, centerX, bottomRowY);
+        EnumMap<AbilitySlotLayoutAnchor, Integer> anchorStacks = new EnumMap<>(AbilitySlotLayoutAnchor.class);
+        for (AbilitySlotLayoutAnchor anchor : AbilitySlotLayoutAnchor.values()) {
+            anchorStacks.put(anchor, 0);
+        }
 
         Component activeName = null;
-        for (int slot = 0; slot < AbilityData.SLOT_COUNT; slot++) {
-            Optional<ResourceLocation> maybeAbilityId = AbilityLoadoutApi.resolvedAbilityId(data, slot);
-            if (highlightedSlot == slot && maybeAbilityId.isPresent()) {
-                activeName = AbilityApi.findAbility(maybeAbilityId.get())
-                        .filter(ability -> AbilityGrantApi.canView(minecraft.player, data, ability))
-                        .map(AbilityDefinition::displayName)
-                        .orElse(null);
+        for (int containerIndex = visibleContainers.size() - 1; containerIndex >= 0; containerIndex--) {
+            AbilitySlotContainerDefinition container = visibleContainers.get(containerIndex);
+            int slotsPerPage = Math.max(1, AbilitySlotContainerApi.resolvedSlotsPerPage(data, container.id()));
+            int activePage = data.activeContainerPage(container.id());
+            int pageCount = Math.max(1, AbilitySlotContainerApi.resolvedPageCount(data, container.id()));
+            AbilityContainerLayoutDefinition layout = AbilityContainerLayoutApi.resolvedLayout(container.id());
+            AbilitySlotLayoutPlanner.LayoutPlan plan = AbilitySlotLayoutPlanner.plan(layout, slotsPerPage, 18, 18, 2);
+            int stackIndex = anchorStacks.getOrDefault(layout.anchor(), 0);
+            int rowX = hudOriginX(guiGraphics.guiWidth(), layout.anchor(), plan.width(), centerX);
+            int rowY = hudOriginY(guiGraphics.guiHeight(), layout.anchor(), plan.height(), stackIndex);
+            anchorStacks.put(layout.anchor(), stackIndex + 1);
+            int frameColor = container.id().equals(AbilitySlotContainerApi.PRIMARY_CONTAINER_ID)
+                    ? presentation.resourceOuterFrameColor()
+                    : presentation.resourceInnerFrameColor();
+            if (layout.layoutMode() != AbilitySlotLayoutMode.RADIAL) {
+                guiGraphics.fill(rowX - 2, rowY - 2, rowX + plan.width() + 2, rowY + plan.height() + 2, frameColor);
+                guiGraphics.fill(rowX - 1, rowY - 1, rowX + plan.width() + 1, rowY + plan.height() + 1, 0xAA000000);
             }
-            renderSlot(guiGraphics, data, slot, centerX - 90 + slot * 20 + 2, guiGraphics.guiHeight() - 19);
+            for (AbilitySlotLayoutPlanner.CategoryPlacement category : plan.categories()) {
+                guiGraphics.drawString(
+                        thisOrMinecraftFont(minecraft),
+                        category.label(),
+                        rowX + category.x(),
+                        rowY + category.y(),
+                        presentation.resourceLabelColor(),
+                        false
+                );
+            }
+
+            for (AbilitySlotLayoutPlanner.SlotPlacement placement : plan.slots()) {
+                AbilitySlotReference slotReference = new AbilitySlotReference(container.id(), activePage, placement.slotIndex());
+                Optional<ResourceLocation> maybeAbilityId = AbilityLoadoutApi.resolvedAbilityId(data, slotReference);
+                if (highlightedSlot != null && highlightedSlot.equals(slotReference) && maybeAbilityId.isPresent()) {
+                    activeName = AbilityApi.findAbility(maybeAbilityId.get())
+                            .filter(ability -> AbilityGrantApi.canView(minecraft.player, data, ability))
+                            .map(AbilityDefinition::displayName)
+                            .orElse(null);
+                }
+                renderSlot(
+                        guiGraphics,
+                        data,
+                        slotReference,
+                        rowX + placement.x(),
+                        rowY + placement.y(),
+                        presentation,
+                        highlightedSlot != null && highlightedSlot.equals(slotReference),
+                        layout.slotMetadata(placement.slotIndex())
+                );
+            }
         }
 
-        if (activeName != null && detailedHud) {
+        boolean showActiveName = presentation.showActiveAbilityName()
+                && (!presentation.activeNameRequiresDetailedHud() || detailedHud);
+        if (activeName != null && showActiveName) {
             int labelX = centerX - minecraft.font.width(activeName) / 2;
-            int labelY = Math.max(8, Math.min(hotbarY - 12, labelCeilingY - 12));
-            guiGraphics.drawString(minecraft.font, activeName, labelX, labelY, 0xFFFFFF, true);
+            int activeStacks = anchorStacks.getOrDefault(AbilitySlotLayoutAnchor.BOTTOM_CENTER, 0);
+            int labelY = Math.max(8, bottomRowY - activeStacks * 30 - 16);
+            guiGraphics.drawString(minecraft.font, activeName, labelX, labelY, presentation.activeNameColor(), true);
         }
     }
 
@@ -123,7 +196,16 @@ public final class CombatBarOverlay {
                             ? entry.registration.renderer()
                             : CombatBarOverlay::renderDefaultResourceBar;
                     int resourceY = hotbarY + 22 - layout.height();
-                    renderer.render(guiGraphics, minecraft, minecraft.player, data, entry.resource, layout, resourceX, resourceY);
+                    renderer.render(
+                            guiGraphics,
+                            minecraft,
+                            minecraft.player,
+                            data,
+                            entry.resource,
+                            layout,
+                            resourceX + layout.offsetX(),
+                            resourceY + layout.offsetY()
+                    );
                     resourceX += layout.width() + layout.spacing();
                 }
                 continue;
@@ -147,7 +229,16 @@ public final class CombatBarOverlay {
                 AbilityResourceHudRenderer renderer = entry.registration.renderer() != null
                         ? entry.registration.renderer()
                         : CombatBarOverlay::renderDefaultResourceBar;
-                renderer.render(guiGraphics, minecraft, minecraft.player, data, entry.resource, layout, resourceX, resourceY);
+                renderer.render(
+                        guiGraphics,
+                        minecraft,
+                        minecraft.player,
+                        data,
+                        entry.resource,
+                        layout,
+                        resourceX + layout.offsetX(),
+                        resourceY + layout.offsetY()
+                );
                 resourceY += layout.height() + layout.spacing();
             }
         }
@@ -174,37 +265,78 @@ public final class CombatBarOverlay {
         renderHorizontalResourceBar(guiGraphics, minecraft, resource, layout, x, y, currentAmount, totalCapacity);
     }
 
-    private static void renderSlot(GuiGraphics guiGraphics, AbilityData data, int slot, int x, int y) {
+    private static void renderSlot(
+            GuiGraphics guiGraphics,
+            AbilityData data,
+            AbilitySlotReference slotReference,
+            int x,
+            int y,
+            CombatHudPresentation presentation,
+            boolean highlighted,
+            AbilitySlotWidgetMetadata metadata
+    ) {
         Minecraft minecraft = Minecraft.getInstance();
-        String slotLabel = Integer.toString(slot + 1);
-        guiGraphics.drawString(minecraft.font, slotLabel, x + 1, y + 8, 0xFFE3C26A, false);
+        String slotLabel = presentation.showSlotNumbers() ? slotLabel(minecraft, slotReference, metadata) : null;
+        int iconX = x + 1;
+        int iconY = y + 1;
+        int iconSize = 14;
+        guiGraphics.fill(
+                x - 1,
+                y - 1,
+                x + 17,
+                y + 17,
+                highlighted ? CombatBarPreferences.mapHudColor(presentation.resourceShieldOutlineColor()) : 0x66000000
+        );
+        if (metadata.softLocked()) {
+            guiGraphics.fill(x + 11, y + 1, x + 15, y + 5, 0xCCB8752A);
+        }
 
-        Optional<ResourceLocation> maybeAbilityId = AbilityLoadoutApi.resolvedAbilityId(data, slot);
+        Optional<ResourceLocation> maybeAbilityId = AbilityLoadoutApi.resolvedAbilityId(data, slotReference);
         if (maybeAbilityId.isEmpty()) {
+            if (metadata.shortLabel() != null && slotLabel == null) {
+                String shortLabel = metadata.shortLabel().getString();
+                guiGraphics.drawString(
+                        minecraft.font,
+                        shortLabel,
+                        x + 8 - minecraft.font.width(shortLabel) / 2,
+                        y + 4,
+                        presentation.slotLabelColor(),
+                        false
+                );
+            }
+            renderSlotLabel(guiGraphics, minecraft, slotLabel, x, y, presentation);
             return;
         }
 
         Optional<AbilityDefinition> maybeAbility = AbilityApi.findAbility(maybeAbilityId.get());
         if (maybeAbility.isEmpty()) {
-            guiGraphics.drawString(minecraft.font, "?", x + 6, y + 4, 0xFFFF5555, true);
+            guiGraphics.drawString(minecraft.font, "?", x + 6, y + 4, presentation.missingAbilityColor(), true);
+            renderSlotLabel(guiGraphics, minecraft, slotLabel, x, y, presentation);
             return;
         }
 
         AbilityDefinition ability = maybeAbility.get();
         if (!AbilityGrantApi.canView(minecraft.player, data, ability)) {
-            guiGraphics.fill(x, y, x + 16, y + 16, 0xAA1F1F1F);
-            guiGraphics.drawString(minecraft.font, "?", x + 5, y + 4, 0xFFE38B8B, true);
+            guiGraphics.fill(iconX, iconY, iconX + iconSize, iconY + iconSize, presentation.hiddenAbilityFillColor());
+            guiGraphics.drawString(minecraft.font, "?", x + 5, y + 4, presentation.hiddenAbilityTextColor(), true);
+            renderSlotLabel(guiGraphics, minecraft, slotLabel, x, y, presentation);
             return;
         }
 
-        AbilityIconRenderer.render(guiGraphics, minecraft, ability.icon(), x, y, 16, 16);
+        AbilityIconRenderer.render(guiGraphics, minecraft, ability.icon(), iconX, iconY, iconSize, iconSize);
 
         if (data.isModeActive(ability.id())) {
-            guiGraphics.fill(x, y + 14, x + 16, y + 16, 0x66000000);
+            guiGraphics.fill(iconX, iconY + 12, iconX + iconSize, iconY + iconSize, 0x66000000);
             int activeWidth = ability.durationTicks() > 0
-                    ? Math.max(1, Math.round(16.0F * data.activeDurationFor(ability.id()) / ability.durationTicks()))
-                    : 16;
-            guiGraphics.fill(x, y + 14, x + activeWidth, y + 16, CombatBarPreferences.mapHudColor(0xCC4CAF50));
+                    ? Math.max(1, Math.round(iconSize * data.activeDurationFor(ability.id()) / (float) ability.durationTicks()))
+                    : iconSize;
+            guiGraphics.fill(
+                    iconX,
+                    iconY + 12,
+                    iconX + activeWidth,
+                    iconY + iconSize,
+                    CombatBarPreferences.mapHudColor(presentation.activeDurationColor())
+            );
         }
 
         if (ability.usesCharges()) {
@@ -223,25 +355,69 @@ public final class CombatBarOverlay {
         if (cooldownTicks > 0) {
             String cooldownLabel = formatCooldown(cooldownTicks);
             guiGraphics.fill(x, y, x + 16, y + 16, 0x99000000);
-            guiGraphics.drawString(
-                    minecraft.font,
-                    cooldownLabel,
-                    x + 8 - minecraft.font.width(cooldownLabel) / 2,
-                    y + 4,
-                    0xFFFFFFFF,
-                    true
-            );
+            if (presentation.showCooldownText()) {
+                guiGraphics.drawString(
+                        minecraft.font,
+                        cooldownLabel,
+                        x + 8 - minecraft.font.width(cooldownLabel) / 2,
+                        y + 4,
+                        0xFFFFFFFF,
+                        true
+                );
+            }
         }
 
-        if (data.isAbilityActivationBlocked(ability.id())) {
-            guiGraphics.fill(x, y + 12, x + 4, y + 16, CombatBarPreferences.mapHudColor(0xFFD45353));
+        if (presentation.showBlockedIndicator() && data.isAbilityActivationBlocked(ability.id())) {
+            guiGraphics.fill(iconX, iconY + 10, iconX + 4, iconY + iconSize, CombatBarPreferences.mapHudColor(presentation.blockedIndicatorColor()));
         }
-        if (AbilityLoadoutApi.hasModeOverlay(data, slot)) {
-            guiGraphics.fill(x, y, x + 16, y + 2, CombatBarPreferences.mapHudColor(0xCC66B3FF));
+        if (presentation.showModeOverlay() && AbilityLoadoutApi.hasModeOverlay(data, slotReference)) {
+            guiGraphics.fill(iconX, iconY, iconX + iconSize, iconY + 2, CombatBarPreferences.mapHudColor(presentation.modeOverlayColor()));
         }
-        if (AbilityLoadoutApi.hasComboOverride(data, slot)) {
-            guiGraphics.fill(x, y + 12, x + 16, y + 14, CombatBarPreferences.mapHudColor(0xFFF1C24B));
+        if (presentation.showComboOverlay() && AbilityLoadoutApi.hasComboOverride(data, slotReference)) {
+            guiGraphics.fill(iconX, iconY + 10, iconX + iconSize, iconY + 12, CombatBarPreferences.mapHudColor(presentation.comboOverlayColor()));
         }
+        renderSlotLabel(guiGraphics, minecraft, slotLabel, x, y, presentation);
+    }
+
+    private static void renderSlotLabel(
+            GuiGraphics guiGraphics,
+            Minecraft minecraft,
+            @org.jetbrains.annotations.Nullable String slotLabel,
+            int x,
+            int y,
+            CombatHudPresentation presentation
+    ) {
+        if (slotLabel == null || slotLabel.isBlank()) {
+            return;
+        }
+        guiGraphics.drawString(minecraft.font, slotLabel, x + 2, y + 1, presentation.slotLabelColor(), true);
+    }
+
+    private static String slotLabel(Minecraft minecraft, AbilitySlotReference slotReference, AbilitySlotWidgetMetadata metadata) {
+        if (metadata.shortLabel() != null && !metadata.shortLabel().getString().isBlank()) {
+            return metadata.shortLabel().getString();
+        }
+        return AbilityControlInputHandler.slotHint(minecraft, slotReference).orElse(Integer.toString(slotReference.slotIndex() + 1));
+    }
+
+    private static int hudOriginX(int screenWidth, AbilitySlotLayoutAnchor anchor, int width, int centerX) {
+        return switch (anchor) {
+            case TOP_LEFT, LEFT_MIDDLE, BOTTOM_LEFT -> 8;
+            case TOP_RIGHT, RIGHT_MIDDLE, BOTTOM_RIGHT -> screenWidth - width - 8;
+            case BOTTOM_CENTER -> centerX - width / 2;
+        };
+    }
+
+    private static int hudOriginY(int screenHeight, AbilitySlotLayoutAnchor anchor, int height, int stackIndex) {
+        return switch (anchor) {
+            case TOP_LEFT, TOP_RIGHT -> HUD_TOP_MARGIN + stackIndex * (height + HUD_STACK_GAP);
+            case LEFT_MIDDLE, RIGHT_MIDDLE -> Math.max(HUD_TOP_MARGIN, screenHeight / 2 - height / 2 + stackIndex * (height + HUD_STACK_GAP));
+            case BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT -> screenHeight - height - HUD_BOTTOM_MARGIN - stackIndex * (height + HUD_STACK_GAP);
+        };
+    }
+
+    private static net.minecraft.client.gui.Font thisOrMinecraftFont(Minecraft minecraft) {
+        return minecraft.font;
     }
 
     private static String formatCooldown(int cooldownTicks) {
@@ -264,16 +440,28 @@ public final class CombatBarOverlay {
         int outerRight = x + layout.width();
         int outerBottom = y + layout.height();
         boolean detailedHud = CombatBarPreferences.detailMode() == CombatBarPreferences.DetailMode.DETAILED;
-        String label = detailedHud
+        CombatHudPresentation presentation = currentHudPresentation();
+        boolean longLabels = useLongResourceLabels(presentation, detailedHud);
+        boolean showName = layout.showName();
+        boolean showValue = layout.showValue();
+        String label = showName
+                ? (longLabels
                 ? fitLabel(minecraft, resource.displayName().getString(), Math.max(20, layout.width() / 2))
-                : compactResourceLabel(resource, 3);
-        String amountLabel = detailedHud
+                : compactResourceLabel(resource, 3))
+                : "";
+        String amountLabel = showValue
+                ? (longLabels
                 ? formatExactAmount(currentAmount) + "/" + formatExactAmount(totalCapacity)
-                : compactAmount(currentAmount);
-        int labelWidth = Math.min(Math.max(20, minecraft.font.width(label) + 6), Math.max(24, layout.width() / 2));
-        int valueWidth = Math.min(Math.max(20, minecraft.font.width(amountLabel) + 6), Math.max(24, layout.width() / 2));
-        int barLeft = x + labelWidth + 2;
-        int barRight = Math.max(barLeft + 8, outerRight - valueWidth - 2);
+                : compactAmount(currentAmount))
+                : "";
+        int labelWidth = showName
+                ? Math.min(Math.max(20, minecraft.font.width(label) + 6), Math.max(24, layout.width() / 2))
+                : 0;
+        int valueWidth = showValue
+                ? Math.min(Math.max(20, minecraft.font.width(amountLabel) + 6), Math.max(24, layout.width() / 2))
+                : 0;
+        int barLeft = x + (showName ? labelWidth + 2 : 2);
+        int barRight = Math.max(barLeft + 8, outerRight - (showValue ? valueWidth + 2 : 2));
         int barTop = y + 2;
         int barBottom = outerBottom - 2;
         int usableWidth = Math.max(1, barRight - barLeft - 2);
@@ -283,9 +471,9 @@ public final class CombatBarOverlay {
         int overflowFillWidth = Math.max(0, fillWidth - normalCapacityWidth);
         int resourceColor = CombatBarPreferences.mapHudColor(resource.color());
 
-        guiGraphics.fill(x, y, outerRight, outerBottom, 0xC0101010);
-        guiGraphics.fill(x + 1, y + 1, outerRight - 1, outerBottom - 1, 0x7A000000);
-        guiGraphics.fill(barLeft, barTop, barRight, barBottom, 0x66000000);
+        guiGraphics.fill(x, y, outerRight, outerBottom, presentation.resourceOuterFrameColor());
+        guiGraphics.fill(x + 1, y + 1, outerRight - 1, outerBottom - 1, presentation.resourceInnerFrameColor());
+        guiGraphics.fill(barLeft, barTop, barRight, barBottom, presentation.resourceBackgroundColor());
         if (baseFillWidth > 0) {
             guiGraphics.fill(barLeft + 1, barTop + 1, barLeft + 1 + baseFillWidth, barBottom - 1, resourceColor);
         }
@@ -300,19 +488,23 @@ public final class CombatBarOverlay {
             );
         }
         if (resource.shieldStyle()) {
-            guiGraphics.fill(x, y, outerRight, y + 1, 0xCCBFE7FF);
-            guiGraphics.fill(x, outerBottom - 1, outerRight, outerBottom, 0xCCBFE7FF);
+            guiGraphics.fill(x, y, outerRight, y + 1, presentation.resourceShieldOutlineColor());
+            guiGraphics.fill(x, outerBottom - 1, outerRight, outerBottom, presentation.resourceShieldOutlineColor());
         }
 
-        guiGraphics.drawString(minecraft.font, label, x + 3, y + 3, 0xFFF6E7BF, false);
-        guiGraphics.drawString(
-                minecraft.font,
-                amountLabel,
-                outerRight - 3 - minecraft.font.width(amountLabel),
-                y + 3,
-                0xFFFFFFFF,
-                false
-        );
+        if (showName) {
+            guiGraphics.drawString(minecraft.font, label, x + 3, y + 3, presentation.resourceLabelColor(), false);
+        }
+        if (showValue) {
+            guiGraphics.drawString(
+                    minecraft.font,
+                    amountLabel,
+                    outerRight - 3 - minecraft.font.width(amountLabel),
+                    y + 3,
+                    presentation.resourceValueColor(),
+                    false
+            );
+        }
     }
 
     private static void renderVerticalResourceBar(
@@ -325,10 +517,13 @@ public final class CombatBarOverlay {
             double currentAmount,
             int totalCapacity
     ) {
-        int footerHeight = Math.min(10, Math.max(8, layout.width() - 4));
+        boolean showName = layout.showName();
+        boolean showValue = layout.showValue();
+        int headerHeight = showValue ? 10 : 2;
+        int footerHeight = showName ? Math.min(10, Math.max(8, layout.width() - 4)) : 2;
         int frameRight = x + layout.width();
         int frameBottom = y + layout.height();
-        int gaugeTop = y + 10;
+        int gaugeTop = y + headerHeight;
         int gaugeBottom = frameBottom - footerHeight - 1;
         int usableHeight = Math.max(1, gaugeBottom - gaugeTop - 1);
         int fillHeight = (int) Math.round(usableHeight * (currentAmount / totalCapacity));
@@ -338,11 +533,13 @@ public final class CombatBarOverlay {
         int innerLeft = x + 2;
         int innerRight = frameRight - 2;
         boolean detailedHud = CombatBarPreferences.detailMode() == CombatBarPreferences.DetailMode.DETAILED;
+        CombatHudPresentation presentation = currentHudPresentation();
+        boolean longLabels = useLongResourceLabels(presentation, detailedHud);
         int resourceColor = CombatBarPreferences.mapHudColor(resource.color());
 
-        guiGraphics.fill(x, y, frameRight, frameBottom, 0xC0101010);
-        guiGraphics.fill(x + 1, y + 1, frameRight - 1, frameBottom - 1, 0x7A000000);
-        guiGraphics.fill(innerLeft, gaugeTop, innerRight, gaugeBottom, 0x66000000);
+        guiGraphics.fill(x, y, frameRight, frameBottom, presentation.resourceOuterFrameColor());
+        guiGraphics.fill(x + 1, y + 1, frameRight - 1, frameBottom - 1, presentation.resourceInnerFrameColor());
+        guiGraphics.fill(innerLeft, gaugeTop, innerRight, gaugeBottom, presentation.resourceBackgroundColor());
         if (baseFillHeight > 0) {
             guiGraphics.fill(
                     innerLeft,
@@ -362,34 +559,39 @@ public final class CombatBarOverlay {
                     overflowColor
             );
         }
-        guiGraphics.fill(x + 1, frameBottom - footerHeight, frameRight - 1, frameBottom - 1, 0xB0202020);
+        guiGraphics.fill(x + 1, frameBottom - footerHeight, frameRight - 1, frameBottom - 1, presentation.resourceInnerFrameColor());
         if (resource.shieldStyle()) {
-            guiGraphics.fill(x, y, frameRight, y + 1, 0xCCBFE7FF);
-            guiGraphics.fill(x, frameBottom - 1, frameRight, frameBottom, 0xCCBFE7FF);
+            guiGraphics.fill(x, y, frameRight, y + 1, presentation.resourceShieldOutlineColor());
+            guiGraphics.fill(x, frameBottom - 1, frameRight, frameBottom, presentation.resourceShieldOutlineColor());
         }
 
-        String amountLabel = detailedHud
-                ? formatExactAmount(currentAmount) + "/" + formatExactAmount(totalCapacity)
-                : compactAmount(currentAmount);
-        guiGraphics.drawString(
-                minecraft.font,
-                fitLabel(minecraft, amountLabel, layout.width() - 2),
-                x + Math.max(1, (layout.width() - minecraft.font.width(fitLabel(minecraft, amountLabel, layout.width() - 2))) / 2),
-                y + 2,
-                0xFFFFFFFF,
-                false
-        );
-        String shortLabel = detailedHud
-                ? fitLabel(minecraft, resource.displayName().getString(), layout.width() - 2)
-                : compactResourceLabel(resource, 2);
-        guiGraphics.drawString(
-                minecraft.font,
-                shortLabel,
-                x + Math.max(1, (layout.width() - minecraft.font.width(shortLabel)) / 2),
-                frameBottom - footerHeight + 1,
-                0xFFF6E7BF,
-                false
-        );
+        if (showValue) {
+            String amountLabel = longLabels
+                    ? formatExactAmount(currentAmount) + "/" + formatExactAmount(totalCapacity)
+                    : compactAmount(currentAmount);
+            String fittedAmountLabel = fitLabel(minecraft, amountLabel, layout.width() - 2);
+            guiGraphics.drawString(
+                    minecraft.font,
+                    fittedAmountLabel,
+                    x + Math.max(1, (layout.width() - minecraft.font.width(fittedAmountLabel)) / 2),
+                    y + 2,
+                    presentation.resourceValueColor(),
+                    false
+            );
+        }
+        if (showName) {
+            String shortLabel = longLabels
+                    ? fitLabel(minecraft, resource.displayName().getString(), layout.width() - 2)
+                    : compactResourceLabel(resource, 2);
+            guiGraphics.drawString(
+                    minecraft.font,
+                    shortLabel,
+                    x + Math.max(1, (layout.width() - minecraft.font.width(shortLabel)) / 2),
+                    frameBottom - footerHeight + 1,
+                    presentation.resourceLabelColor(),
+                    false
+            );
+        }
     }
 
     private static int totalStackSize(List<ResourceHudEntry> entries, boolean horizontal) {
@@ -492,5 +694,17 @@ public final class CombatBarOverlay {
             AbilityResourceDefinition resource,
             AbilityResourceHudRegistration registration
     ) {}
+
+    private static CombatHudPresentation currentHudPresentation() {
+        return CombatHudPresentationApi.active();
+    }
+
+    private static boolean useLongResourceLabels(CombatHudPresentation presentation, boolean detailedHud) {
+        return switch (presentation.resourceLabelMode()) {
+            case AUTO -> detailedHud;
+            case SHORT -> false;
+            case LONG -> true;
+        };
+    }
 }
 

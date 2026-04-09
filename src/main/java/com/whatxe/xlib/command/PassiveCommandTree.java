@@ -14,6 +14,18 @@ final class PassiveCommandTree {
 
     static LiteralArgumentBuilder<CommandSourceStack> build() {
         return Commands.literal("passives")
+                .then(Commands.literal("catalog")
+                        .executes(context -> PassiveAdminCommands.catalog(context.getSource())))
+                .then(Commands.literal("describe")
+                        .then(Commands.argument("passive", ResourceLocationArgument.id())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(
+                                        PassiveApi.allPassives().stream().map(PassiveDefinition::id),
+                                        builder
+                                ))
+                                .executes(context -> PassiveAdminCommands.describe(
+                                        context.getSource(),
+                                        ResourceLocationArgument.getId(context, "passive")
+                                ))))
                 .then(Commands.literal("grant")
                         .then(Commands.argument("targets", EntityArgument.players())
                                 .then(Commands.argument("passive", ResourceLocationArgument.id())

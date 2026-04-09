@@ -46,7 +46,7 @@ public sealed class XLibModeEvent extends Event permits XLibModeEvent.Started, X
         }
     }
 
-    public static sealed class Ended extends XLibModeEvent permits DurationExpired, RequirementInvalidated, ForceEnded, ReplacedByTransform, ReplacedByExclusive {
+    public static sealed class Ended extends XLibModeEvent permits DurationExpired, RequirementInvalidated, Suppressed, ForceEnded, ReplacedByTransform, ReplacedByExclusive {
         private final AbilityEndReason reason;
 
         public Ended(
@@ -74,6 +74,12 @@ public sealed class XLibModeEvent extends Event permits XLibModeEvent.Started, X
     public static final class RequirementInvalidated extends Ended {
         public RequirementInvalidated(ServerPlayer player, AbilityDefinition mode, AbilityData previousData, AbilityData currentData) {
             super(player, mode, previousData, currentData, AbilityEndReason.REQUIREMENT_INVALIDATED);
+        }
+    }
+
+    public static final class Suppressed extends Ended {
+        public Suppressed(ServerPlayer player, AbilityDefinition mode, AbilityData previousData, AbilityData currentData) {
+            super(player, mode, previousData, currentData, AbilityEndReason.SUPPRESSED);
         }
     }
 

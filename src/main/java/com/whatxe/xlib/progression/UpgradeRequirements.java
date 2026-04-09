@@ -1,5 +1,6 @@
 package com.whatxe.xlib.progression;
 
+import com.whatxe.xlib.ability.IdentityApi;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,6 +55,12 @@ public final class UpgradeRequirements {
         Objects.requireNonNull(nodeId, "nodeId");
         Component message = Component.translatable("message.xlib.upgrade.requirement_node", displayNodeName(nodeId));
         return predicate(message, (player, data) -> data.hasUnlockedNode(nodeId));
+    }
+
+    public static UpgradeRequirement identityActive(ResourceLocation identityId) {
+        Objects.requireNonNull(identityId, "identityId");
+        Component message = Component.translatable("message.xlib.upgrade.requirement_identity", displayIdentityName(identityId));
+        return predicate(message, (player, data) -> player != null && IdentityApi.hasIdentity(player, identityId));
     }
 
     public static UpgradeRequirement all(UpgradeRequirement... requirements) {
@@ -133,6 +140,10 @@ public final class UpgradeRequirements {
         return Component.literal(humanize(counterId));
     }
 
+    public static Component displayIdentityName(ResourceLocation identityId) {
+        return Component.literal(humanize(identityId));
+    }
+
     private static Component joinedDescriptions(Collection<UpgradeRequirement> requirements) {
         MutableComponent joined = Component.empty();
         boolean first = true;
@@ -161,10 +172,6 @@ public final class UpgradeRequirements {
 
     private static String humanize(ResourceLocation id) {
         String path = id.getPath();
-        if (path.startsWith("demo_")) {
-            path = path.substring("demo_".length());
-        }
-
         StringBuilder builder = new StringBuilder(path.length());
         boolean capitalizeNext = true;
         for (int index = 0; index < path.length(); index++) {

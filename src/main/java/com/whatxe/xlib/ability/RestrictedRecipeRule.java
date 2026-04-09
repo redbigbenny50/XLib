@@ -1,8 +1,11 @@
 package com.whatxe.xlib.ability;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -20,6 +23,10 @@ import org.jetbrains.annotations.Nullable;
 
 public final class RestrictedRecipeRule {
     private final ResourceLocation id;
+    private final ResourceLocation familyId;
+    private final ResourceLocation groupId;
+    private final ResourceLocation pageId;
+    private final Set<ResourceLocation> tags;
     private final Set<ResourceLocation> recipeTags;
     private final Set<ResourceLocation> categories;
     private final Set<ResourceLocation> outputs;
@@ -31,6 +38,10 @@ public final class RestrictedRecipeRule {
 
     private RestrictedRecipeRule(
             ResourceLocation id,
+            ResourceLocation familyId,
+            ResourceLocation groupId,
+            ResourceLocation pageId,
+            Set<ResourceLocation> tags,
             Set<ResourceLocation> recipeTags,
             Set<ResourceLocation> categories,
             Set<ResourceLocation> outputs,
@@ -41,6 +52,10 @@ public final class RestrictedRecipeRule {
             boolean hiddenWhenLocked
     ) {
         this.id = id;
+        this.familyId = familyId;
+        this.groupId = groupId;
+        this.pageId = pageId;
+        this.tags = Set.copyOf(tags);
         this.recipeTags = Set.copyOf(recipeTags);
         this.categories = Set.copyOf(categories);
         this.outputs = Set.copyOf(outputs);
@@ -57,6 +72,41 @@ public final class RestrictedRecipeRule {
 
     public ResourceLocation id() {
         return this.id;
+    }
+
+    public Optional<ResourceLocation> familyId() {
+        return Optional.ofNullable(this.familyId);
+    }
+
+    public Optional<ResourceLocation> groupId() {
+        return Optional.ofNullable(this.groupId);
+    }
+
+    public Optional<ResourceLocation> pageId() {
+        return Optional.ofNullable(this.pageId);
+    }
+
+    public Set<ResourceLocation> tags() {
+        return this.tags;
+    }
+
+    public boolean hasTag(ResourceLocation tagId) {
+        return this.tags.contains(tagId);
+    }
+
+    public List<ResourceLocation> metadataIds() {
+        List<ResourceLocation> ids = new ArrayList<>(3 + this.tags.size());
+        if (this.familyId != null) {
+            ids.add(this.familyId);
+        }
+        if (this.groupId != null) {
+            ids.add(this.groupId);
+        }
+        if (this.pageId != null) {
+            ids.add(this.pageId);
+        }
+        ids.addAll(this.tags);
+        return List.copyOf(ids);
     }
 
     public Set<ResourceLocation> recipeTags() {
@@ -149,6 +199,16 @@ public final class RestrictedRecipeRule {
                 .unlockSources(this.unlockSources)
                 .unlockAdvancements(this.unlockAdvancements)
                 .hiddenWhenLocked(this.hiddenWhenLocked);
+        if (this.familyId != null) {
+            builder.family(this.familyId);
+        }
+        if (this.groupId != null) {
+            builder.group(this.groupId);
+        }
+        if (this.pageId != null) {
+            builder.page(this.pageId);
+        }
+        builder.tags(this.tags);
 
         ItemStack resultStack = recipe.value().getResultItem(registries);
         if (!resultStack.isEmpty()) {
@@ -173,6 +233,10 @@ public final class RestrictedRecipeRule {
 
     public static final class Builder {
         private final ResourceLocation id;
+        private ResourceLocation familyId;
+        private ResourceLocation groupId;
+        private ResourceLocation pageId;
+        private final Set<ResourceLocation> tags = new LinkedHashSet<>();
         private final Set<ResourceLocation> recipeTags = new LinkedHashSet<>();
         private final Set<ResourceLocation> categories = new LinkedHashSet<>();
         private final Set<ResourceLocation> outputs = new LinkedHashSet<>();
@@ -184,6 +248,31 @@ public final class RestrictedRecipeRule {
 
         private Builder(ResourceLocation id) {
             this.id = Objects.requireNonNull(id, "id");
+        }
+
+        public Builder family(ResourceLocation familyId) {
+            this.familyId = Objects.requireNonNull(familyId, "familyId");
+            return this;
+        }
+
+        public Builder group(ResourceLocation groupId) {
+            this.groupId = Objects.requireNonNull(groupId, "groupId");
+            return this;
+        }
+
+        public Builder page(ResourceLocation pageId) {
+            this.pageId = Objects.requireNonNull(pageId, "pageId");
+            return this;
+        }
+
+        public Builder tag(ResourceLocation tagId) {
+            this.tags.add(Objects.requireNonNull(tagId, "tagId"));
+            return this;
+        }
+
+        public Builder tags(Collection<ResourceLocation> tagIds) {
+            tagIds.stream().filter(Objects::nonNull).forEach(this.tags::add);
+            return this;
         }
 
         public Builder recipeTag(ResourceLocation recipeTagId) {
@@ -254,6 +343,10 @@ public final class RestrictedRecipeRule {
         public RestrictedRecipeRule build() {
             return new RestrictedRecipeRule(
                     this.id,
+                    this.familyId,
+                    this.groupId,
+                    this.pageId,
+                    this.tags,
                     this.recipeTags,
                     this.categories,
                     this.outputs,

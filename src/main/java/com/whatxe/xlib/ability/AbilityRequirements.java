@@ -3,13 +3,16 @@ package com.whatxe.xlib.ability;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.combat.CombatMarkState;
 import com.whatxe.xlib.combat.CombatReactionApi;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Supplier;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
@@ -52,6 +55,50 @@ public final class AbilityRequirements {
         return AbilityRequirement.of(descriptionSupplier, (player, data) -> predicate.test(player, data)
                 ? Optional.empty()
                 : Optional.of(failureSupplier.get()));
+    }
+
+    public static AbilityRequirement all(AbilityRequirement... requirements) {
+        return all(Arrays.asList(requirements));
+    }
+
+    public static AbilityRequirement all(Collection<AbilityRequirement> requirements) {
+        List<AbilityRequirement> copied = List.copyOf(requirements);
+        if (copied.isEmpty()) {
+            throw new IllegalArgumentException("all(...) requires at least one requirement");
+        }
+        Supplier<Component> descriptionSupplier =
+                () -> Component.translatable("message.xlib.requirement_all", joinedDescriptions(copied));
+        return AbilityRequirement.of(descriptionSupplier, (player, data) -> firstFailure(player, data, copied));
+    }
+
+    public static AbilityRequirement any(AbilityRequirement... requirements) {
+        return any(Arrays.asList(requirements));
+    }
+
+    public static AbilityRequirement any(Collection<AbilityRequirement> requirements) {
+        List<AbilityRequirement> copied = List.copyOf(requirements);
+        if (copied.isEmpty()) {
+            throw new IllegalArgumentException("any(...) requires at least one requirement");
+        }
+        Supplier<Component> descriptionSupplier =
+                () -> Component.translatable("message.xlib.requirement_any", joinedDescriptions(copied));
+        return AbilityRequirement.of(descriptionSupplier, (player, data) -> {
+            for (AbilityRequirement requirement : copied) {
+                if (requirement.validate(player, data).isEmpty()) {
+                    return Optional.empty();
+                }
+            }
+            return Optional.of(descriptionSupplier.get());
+        });
+    }
+
+    public static AbilityRequirement not(AbilityRequirement requirement) {
+        AbilityRequirement resolvedRequirement = Objects.requireNonNull(requirement, "requirement");
+        Supplier<Component> descriptionSupplier =
+                () -> Component.translatable("message.xlib.requirement_not", resolvedRequirement.description());
+        return AbilityRequirement.of(descriptionSupplier, (player, data) -> resolvedRequirement.validate(player, data).isPresent()
+                ? Optional.empty()
+                : Optional.of(descriptionSupplier.get()));
     }
 
     public static AbilityRequirement sprinting() {
@@ -285,6 +332,54 @@ public final class AbilityRequirements {
         );
     }
 
+    public static AbilityRequirement detectorActive(ResourceLocation detectorId) {
+        Objects.requireNonNull(detectorId, "detectorId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_detector", displayReadableId(detectorId)),
+                (player, data) -> AbilityDetectorApi.hasActiveDetector(data, detectorId)
+        );
+    }
+
+    public static AbilityRequirement statePolicyActive(ResourceLocation statePolicyId) {
+        Objects.requireNonNull(statePolicyId, "statePolicyId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_state_policy", displayReadableId(statePolicyId)),
+                (player, data) -> StatePolicyApi.hasActivePolicy(data, statePolicyId)
+        );
+    }
+
+    public static AbilityRequirement stateFlagActive(ResourceLocation stateFlagId) {
+        Objects.requireNonNull(stateFlagId, "stateFlagId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_state_flag", displayReadableId(stateFlagId)),
+                (player, data) -> StateFlagApi.hasActiveFlag(data, stateFlagId)
+        );
+    }
+
+    public static AbilityRequirement identityActive(ResourceLocation identityId) {
+        Objects.requireNonNull(identityId, "identityId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_identity", displayReadableId(identityId)),
+                (player, data) -> IdentityApi.hasIdentity(data, identityId)
+        );
+    }
+
+    public static AbilityRequirement artifactActive(ResourceLocation artifactId) {
+        Objects.requireNonNull(artifactId, "artifactId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_artifact_active", displayReadableId(artifactId)),
+                (player, data) -> player != null && ArtifactApi.isActive(player, artifactId)
+        );
+    }
+
+    public static AbilityRequirement artifactUnlocked(ResourceLocation artifactId) {
+        Objects.requireNonNull(artifactId, "artifactId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_artifact_unlocked", displayReadableId(artifactId)),
+                (player, data) -> ArtifactApi.isUnlocked(data, artifactId)
+        );
+    }
+
     public static Optional<Component> firstFailure(
             Player player,
             AbilityData data,
@@ -297,6 +392,19 @@ public final class AbilityRequirements {
             }
         }
         return Optional.empty();
+    }
+
+    private static Component joinedDescriptions(Collection<AbilityRequirement> requirements) {
+        MutableComponent joined = Component.empty();
+        boolean first = true;
+        for (AbilityRequirement requirement : requirements) {
+            if (!first) {
+                joined = joined.append(Component.literal(", "));
+            }
+            joined = joined.append(requirement.description());
+            first = false;
+        }
+        return joined;
     }
 
     private static Component displayResourceName(ResourceLocation resourceId) {

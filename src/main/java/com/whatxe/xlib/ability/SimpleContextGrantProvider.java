@@ -55,6 +55,10 @@ public final class SimpleContextGrantProvider implements ContextGrantProvider {
             return this;
         }
 
+        public Builder when(AbilityRequirement requirement) {
+            return when(ContextGrantConditions.fromRequirement(requirement));
+        }
+
         public Builder grantAbility(ResourceLocation abilityId) {
             this.snapshot.grantAbility(abilityId);
             return this;
@@ -102,6 +106,26 @@ public final class SimpleContextGrantProvider implements ContextGrantProvider {
 
         public Builder blockAbilities(Collection<ResourceLocation> abilityIds) {
             this.snapshot.blockAbilities(abilityIds);
+            return this;
+        }
+
+        public Builder grantStatePolicy(ResourceLocation statePolicyId) {
+            this.snapshot.grantStatePolicy(statePolicyId);
+            return this;
+        }
+
+        public Builder grantStatePolicies(Collection<ResourceLocation> statePolicyIds) {
+            this.snapshot.grantStatePolicies(statePolicyIds);
+            return this;
+        }
+
+        public Builder grantStateFlag(ResourceLocation stateFlagId) {
+            this.snapshot.grantStateFlag(stateFlagId);
+            return this;
+        }
+
+        public Builder grantStateFlags(Collection<ResourceLocation> stateFlagIds) {
+            this.snapshot.grantStateFlags(stateFlagIds);
             return this;
         }
 

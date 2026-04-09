@@ -67,6 +67,36 @@ public final class ModeAbilityDefinition {
             return this;
         }
 
+        public Builder family(ResourceLocation familyId) {
+            this.abilityBuilder.family(familyId);
+            this.modeBuilder.family(familyId);
+            return this;
+        }
+
+        public Builder group(ResourceLocation groupId) {
+            this.abilityBuilder.group(groupId);
+            this.modeBuilder.group(groupId);
+            return this;
+        }
+
+        public Builder page(ResourceLocation pageId) {
+            this.abilityBuilder.page(pageId);
+            this.modeBuilder.page(pageId);
+            return this;
+        }
+
+        public Builder tag(ResourceLocation tagId) {
+            this.abilityBuilder.tag(tagId);
+            this.modeBuilder.tag(tagId);
+            return this;
+        }
+
+        public Builder tags(Collection<ResourceLocation> tagIds) {
+            this.abilityBuilder.tags(tagIds);
+            this.modeBuilder.tags(tagIds);
+            return this;
+        }
+
         public Builder assignRequirement(AbilityRequirement requirement) {
             this.abilityBuilder.assignRequirement(requirement);
             return this;
@@ -264,6 +294,26 @@ public final class ModeAbilityDefinition {
 
         public Builder blockAbilities(Collection<ResourceLocation> abilityIds) {
             this.modeBuilder.blockAbilities(abilityIds);
+            return this;
+        }
+
+        public Builder statePolicy(ResourceLocation statePolicyId) {
+            this.modeBuilder.statePolicy(statePolicyId);
+            return this;
+        }
+
+        public Builder statePolicies(Collection<ResourceLocation> statePolicyIds) {
+            this.modeBuilder.statePolicies(statePolicyIds);
+            return this;
+        }
+
+        public Builder stateFlag(ResourceLocation stateFlagId) {
+            this.modeBuilder.stateFlag(stateFlagId);
+            return this;
+        }
+
+        public Builder stateFlags(Collection<ResourceLocation> stateFlagIds) {
+            this.modeBuilder.stateFlags(stateFlagIds);
             return this;
         }
 

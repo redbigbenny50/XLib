@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -20,6 +21,7 @@ public record AbilityData(
         Map<ResourceLocation, Integer> cooldowns,
         Set<ResourceLocation> activeModes,
         Map<ResourceLocation, Integer> activeDurations,
+        Map<ResourceLocation, Integer> detectorWindows,
         Map<ResourceLocation, Integer> comboWindows,
         List<Optional<ResourceLocation>> comboOverrides,
         List<Integer> comboOverrideDurations,
@@ -35,10 +37,15 @@ public record AbilityData(
         Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
         Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
         Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+        Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+        Map<ResourceLocation, Set<ResourceLocation>> stateFlagSources,
+        Map<ResourceLocation, Set<ResourceLocation>> grantBundleSources,
+        Map<ResourceLocation, Set<ResourceLocation>> artifactUnlockSources,
         Set<ResourceLocation> managedGrantSources,
         boolean abilityAccessRestricted,
         Map<ResourceLocation, List<ResourceLocation>> modeCycleHistory,
-        Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+        Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts,
+        AbilityContainerState containerState
 ) {
     public static final int SLOT_COUNT = 9;
 
@@ -56,7 +63,8 @@ public record AbilityData(
             Codec.unboundedMap(ResourceLocation.CODEC, RESOURCE_LIST_CODEC);
     private static final ComboCodecState EMPTY_COMBO_STATE = new ComboCodecState(Map.of(), List.of(), List.of());
     private static final GrantCodecState EMPTY_GRANT_STATE =
-            new GrantCodecState(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), false);
+            new GrantCodecState(Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), false);
+    private static final LayoutCodecState EMPTY_LAYOUT_STATE = new LayoutCodecState(Map.of(), Map.of(), AbilityContainerState.empty());
 
     public static final Codec<AbilityData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             OPTIONAL_RESOURCE_CODEC.listOf().optionalFieldOf("slots", List.of()).forGetter(AbilityData::slots),
@@ -66,6 +74,7 @@ public record AbilityData(
                     .optionalFieldOf("active_modes", Set.of())
                     .forGetter(AbilityData::activeModes),
             Codec.unboundedMap(ResourceLocation.CODEC, Codec.INT).optionalFieldOf("active_durations", Map.of()).forGetter(AbilityData::activeDurations),
+            Codec.unboundedMap(ResourceLocation.CODEC, Codec.INT).optionalFieldOf("detector_windows", Map.of()).forGetter(AbilityData::detectorWindows),
             ComboCodecState.CODEC.optionalFieldOf("combo_state", EMPTY_COMBO_STATE).forGetter(data -> new ComboCodecState(
                     data.comboWindows(),
                     data.comboOverrides(),
@@ -84,18 +93,21 @@ public record AbilityData(
                     data.grantedItemSources(),
                     data.recipePermissionSources(),
                     data.abilityActivationBlockSources(),
+                    data.statePolicySources(),
+                    data.stateFlagSources(),
+                    data.grantBundleSources(),
+                    data.artifactUnlockSources(),
                     data.managedGrantSources(),
                     data.abilityAccessRestricted()
             )),
-            RESOURCE_LIST_MAP_CODEC.optionalFieldOf("mode_cycle_history", Map.of()).forGetter(AbilityData::modeCycleHistory),
-            Codec.unboundedMap(ResourceLocation.CODEC, OPTIONAL_RESOURCE_CODEC.listOf())
-                    .optionalFieldOf("mode_loadouts", Map.of())
-                    .forGetter(AbilityData::modeLoadouts)
+            LayoutCodecState.CODEC.optionalFieldOf("layout_state", EMPTY_LAYOUT_STATE)
+                    .forGetter(data -> new LayoutCodecState(data.modeCycleHistory(), data.modeLoadouts(), data.containerState()))
     ).apply(instance, (
             slots,
             cooldowns,
             activeModes,
             activeDurations,
+            detectorWindows,
             comboState,
             charges,
             chargeRechargeTicks,
@@ -105,13 +117,13 @@ public record AbilityData(
             resourceDecayDelays,
             resourcePartials,
             grantState,
-            modeCycleHistory,
-            modeLoadouts
+            layoutState
     ) -> new AbilityData(
             slots,
             cooldowns,
             activeModes,
             activeDurations,
+            detectorWindows,
             comboState.comboWindows(),
             comboState.comboOverrides(),
             comboState.comboOverrideDurations(),
@@ -127,10 +139,15 @@ public record AbilityData(
             grantState.grantedItemSources(),
             grantState.recipePermissionSources(),
             grantState.abilityActivationBlockSources(),
+            grantState.statePolicySources(),
+            grantState.stateFlagSources(),
+            grantState.grantBundleSources(),
+            grantState.artifactUnlockSources(),
             grantState.managedGrantSources(),
             grantState.abilityAccessRestricted(),
-            modeCycleHistory,
-            modeLoadouts
+            layoutState.modeCycleHistory(),
+            layoutState.modeLoadouts(),
+            layoutState.containerState()
     )));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, AbilityData> STREAM_CODEC =
@@ -154,6 +171,10 @@ public record AbilityData(
             Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
             Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
             Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Map<ResourceLocation, Set<ResourceLocation>> stateFlagSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantBundleSources,
+            Map<ResourceLocation, Set<ResourceLocation>> artifactUnlockSources,
             Set<ResourceLocation> managedGrantSources,
             boolean abilityAccessRestricted
     ) {
@@ -163,9 +184,28 @@ public record AbilityData(
                 RESOURCE_SET_MAP_CODEC.optionalFieldOf("granted_item_sources", Map.of()).forGetter(GrantCodecState::grantedItemSources),
                 RESOURCE_SET_MAP_CODEC.optionalFieldOf("recipe_permission_sources", Map.of()).forGetter(GrantCodecState::recipePermissionSources),
                 RESOURCE_SET_MAP_CODEC.optionalFieldOf("ability_activation_block_sources", Map.of()).forGetter(GrantCodecState::abilityActivationBlockSources),
+                RESOURCE_SET_MAP_CODEC.optionalFieldOf("state_policy_sources", Map.of()).forGetter(GrantCodecState::statePolicySources),
+                RESOURCE_SET_MAP_CODEC.optionalFieldOf("state_flag_sources", Map.of()).forGetter(GrantCodecState::stateFlagSources),
+                RESOURCE_SET_MAP_CODEC.optionalFieldOf("grant_bundle_sources", Map.of()).forGetter(GrantCodecState::grantBundleSources),
+                RESOURCE_SET_MAP_CODEC.optionalFieldOf("artifact_unlock_sources", Map.of()).forGetter(GrantCodecState::artifactUnlockSources),
                 RESOURCE_SET_CODEC.optionalFieldOf("managed_grant_sources", Set.of()).forGetter(GrantCodecState::managedGrantSources),
                 Codec.BOOL.optionalFieldOf("ability_access_restricted", false).forGetter(GrantCodecState::abilityAccessRestricted)
         ).apply(instance, GrantCodecState::new));
+    }
+
+    private record LayoutCodecState(
+            Map<ResourceLocation, List<ResourceLocation>> modeCycleHistory,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts,
+            AbilityContainerState containerState
+    ) {
+        private static final Codec<LayoutCodecState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                RESOURCE_LIST_MAP_CODEC.optionalFieldOf("mode_cycle_history", Map.of()).forGetter(LayoutCodecState::modeCycleHistory),
+                Codec.unboundedMap(ResourceLocation.CODEC, OPTIONAL_RESOURCE_CODEC.listOf())
+                        .optionalFieldOf("mode_loadouts", Map.of())
+                        .forGetter(LayoutCodecState::modeLoadouts),
+                AbilityContainerState.CODEC.optionalFieldOf("container_state", AbilityContainerState.empty())
+                        .forGetter(LayoutCodecState::containerState)
+        ).apply(instance, LayoutCodecState::new));
     }
 
     public AbilityData {
@@ -173,6 +213,7 @@ public record AbilityData(
         cooldowns = normalizePositiveMap(cooldowns);
         activeModes = Set.copyOf(activeModes);
         activeDurations = normalizePositiveMap(activeDurations);
+        detectorWindows = normalizePositiveMap(detectorWindows);
         comboWindows = normalizePositiveMap(comboWindows);
         comboOverrides = normalizeSlots(comboOverrides);
         comboOverrideDurations = normalizeSlotIntegers(comboOverrideDurations);
@@ -188,9 +229,18 @@ public record AbilityData(
         grantedItemSources = normalizeGrantSourceMap(grantedItemSources);
         recipePermissionSources = normalizeGrantSourceMap(recipePermissionSources);
         abilityActivationBlockSources = normalizeGrantSourceMap(abilityActivationBlockSources);
+        statePolicySources = normalizeGrantSourceMap(statePolicySources);
+        stateFlagSources = normalizeGrantSourceMap(stateFlagSources);
+        grantBundleSources = normalizeGrantSourceMap(grantBundleSources);
+        artifactUnlockSources = normalizeGrantSourceMap(artifactUnlockSources);
         managedGrantSources = Set.copyOf(managedGrantSources);
         modeCycleHistory = normalizeModeCycleHistory(modeCycleHistory);
         modeLoadouts = normalizeModeLoadouts(modeLoadouts);
+        containerState = collapseToPrimaryBar(containerState == null ? AbilityContainerState.empty() : containerState, slots, comboOverrides, comboOverrideDurations, modeLoadouts);
+        slots = containerState.legacyPrimarySlots(SLOT_COUNT);
+        comboOverrides = containerState.legacyPrimaryComboOverrides(SLOT_COUNT);
+        comboOverrideDurations = containerState.legacyPrimaryComboDurations(SLOT_COUNT);
+        modeLoadouts = normalizeModeLoadouts(containerState.legacyPrimaryModeLoadouts(SLOT_COUNT));
     }
 
     public static AbilityData empty() {
@@ -200,8 +250,13 @@ public record AbilityData(
                 Set.of(),
                 Map.of(),
                 Map.of(),
+                Map.of(),
                 List.of(),
                 List.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
+                Map.of(),
                 Map.of(),
                 Map.of(),
                 Map.of(),
@@ -217,20 +272,25 @@ public record AbilityData(
                 Set.of(),
                 false,
                 Map.of(),
-                Map.of()
+                Map.of(),
+                AbilityContainerState.empty()
         );
     }
 
     public Optional<ResourceLocation> abilityInSlot(int slot) {
-        return isValidSlot(slot) ? this.slots.get(slot) : Optional.empty();
+        return abilityInSlot(AbilitySlotReference.primary(slot));
+    }
+
+    public Optional<ResourceLocation> abilityInSlot(AbilitySlotReference slotReference) {
+        return this.containerState.abilityInSlot(slotReference);
     }
 
     public Optional<ResourceLocation> modeAbilityInSlot(ResourceLocation modeId, int slot) {
-        List<Optional<ResourceLocation>> modeSlots = this.modeLoadouts.get(modeId);
-        if (modeSlots == null || !isValidSlot(slot)) {
-            return Optional.empty();
-        }
-        return modeSlots.get(slot);
+        return modeAbilityInSlot(modeId, AbilitySlotReference.primary(slot));
+    }
+
+    public Optional<ResourceLocation> modeAbilityInSlot(ResourceLocation modeId, AbilitySlotReference slotReference) {
+        return this.containerState.modeAbilityInSlot(modeId, slotReference);
     }
 
     public int cooldownFor(ResourceLocation abilityId) {
@@ -245,16 +305,40 @@ public record AbilityData(
         return this.activeDurations.getOrDefault(abilityId, 0);
     }
 
+    public int detectorWindowFor(ResourceLocation detectorId) {
+        return this.detectorWindows.getOrDefault(detectorId, 0);
+    }
+
     public int comboWindowFor(ResourceLocation abilityId) {
         return this.comboWindows.getOrDefault(abilityId, 0);
     }
 
     public Optional<ResourceLocation> comboOverrideInSlot(int slot) {
-        return isValidSlot(slot) ? this.comboOverrides.get(slot) : Optional.empty();
+        return comboOverrideInSlot(AbilitySlotReference.primary(slot));
+    }
+
+    public Optional<ResourceLocation> comboOverrideInSlot(AbilitySlotReference slotReference) {
+        return this.containerState.comboOverrideInSlot(slotReference);
     }
 
     public int comboOverrideDurationForSlot(int slot) {
-        return isValidSlot(slot) ? this.comboOverrideDurations.get(slot) : 0;
+        return comboOverrideDurationForSlot(AbilitySlotReference.primary(slot));
+    }
+
+    public int comboOverrideDurationForSlot(AbilitySlotReference slotReference) {
+        return this.containerState.comboOverrideDurationForSlot(slotReference);
+    }
+
+    public int activeContainerPage(ResourceLocation containerId) {
+        return this.containerState.activePage(containerId);
+    }
+
+    public int containerPageCount(ResourceLocation containerId) {
+        return this.containerState.pageCount(containerId);
+    }
+
+    public int containerSlotCount(ResourceLocation containerId, int pageIndex) {
+        return this.containerState.slotCount(containerId, pageIndex);
     }
 
     public int chargeCountFor(ResourceLocation abilityId, int defaultValue) {
@@ -345,6 +429,58 @@ public record AbilityData(
         return this.abilityActivationBlockSources.containsKey(abilityId);
     }
 
+    public Set<ResourceLocation> activeStatePolicies() {
+        return this.statePolicySources.keySet();
+    }
+
+    public Set<ResourceLocation> statePolicySourcesFor(ResourceLocation statePolicyId) {
+        return this.statePolicySources.getOrDefault(statePolicyId, Set.of());
+    }
+
+    public boolean hasStatePolicy(ResourceLocation statePolicyId) {
+        return this.statePolicySources.containsKey(statePolicyId);
+    }
+
+    public Set<ResourceLocation> activeStateFlags() {
+        return this.stateFlagSources.keySet();
+    }
+
+    public Set<ResourceLocation> stateFlagSourcesFor(ResourceLocation stateFlagId) {
+        return this.stateFlagSources.getOrDefault(stateFlagId, Set.of());
+    }
+
+    public boolean hasStateFlag(ResourceLocation stateFlagId) {
+        return this.stateFlagSources.containsKey(stateFlagId);
+    }
+
+    public Set<ResourceLocation> activeGrantBundles() {
+        return this.grantBundleSources.keySet();
+    }
+
+    public Set<ResourceLocation> unlockedArtifacts() {
+        return this.artifactUnlockSources.keySet();
+    }
+
+    public Set<ResourceLocation> grantBundleSourcesFor(ResourceLocation bundleId) {
+        return this.grantBundleSources.getOrDefault(bundleId, Set.of());
+    }
+
+    public boolean hasGrantBundle(ResourceLocation bundleId) {
+        return this.grantBundleSources.containsKey(bundleId);
+    }
+
+    public Set<ResourceLocation> artifactUnlockSourcesFor(ResourceLocation artifactId) {
+        return this.artifactUnlockSources.getOrDefault(artifactId, Set.of());
+    }
+
+    public boolean hasUnlockedArtifact(ResourceLocation artifactId) {
+        return this.artifactUnlockSources.containsKey(artifactId);
+    }
+
+    public Set<ResourceLocation> activeDetectors() {
+        return this.detectorWindows.keySet();
+    }
+
     public List<ResourceLocation> modeCycleHistoryFor(ResourceLocation cycleGroupId) {
         return this.modeCycleHistory.getOrDefault(cycleGroupId, List.of());
     }
@@ -354,50 +490,37 @@ public record AbilityData(
     }
 
     public AbilityData withAbilityInSlot(int slot, @Nullable ResourceLocation abilityId) {
-        if (!isValidSlot(slot)) {
+        return withAbilityInSlot(AbilitySlotReference.primary(slot), abilityId);
+    }
+
+    public AbilityData withAbilityInSlot(AbilitySlotReference slotReference, @Nullable ResourceLocation abilityId) {
+        if (!isValidSlotReference(slotReference)) {
             return this;
         }
 
-        List<Optional<ResourceLocation>> updatedSlots = new ArrayList<>(this.slots);
-        updatedSlots.set(slot, Optional.ofNullable(abilityId));
-        return copy(updatedSlots, this.cooldowns, this.activeModes, this.activeDurations,
-                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
-                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
-                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+        AbilityContainerState updatedContainerState = this.containerState.withAbilityInSlot(slotReference, abilityId);
+        return copyWithContainerState(updatedContainerState);
     }
 
     public AbilityData withModeAbilityInSlot(ResourceLocation modeId, int slot, @Nullable ResourceLocation abilityId) {
-        if (!isValidSlot(slot)) {
+        return withModeAbilityInSlot(modeId, AbilitySlotReference.primary(slot), abilityId);
+    }
+
+    public AbilityData withModeAbilityInSlot(ResourceLocation modeId, AbilitySlotReference slotReference, @Nullable ResourceLocation abilityId) {
+        if (!isValidSlotReference(slotReference)) {
             return this;
         }
 
-        Map<ResourceLocation, List<Optional<ResourceLocation>>> updatedModeLoadouts = new LinkedHashMap<>(this.modeLoadouts);
-        List<Optional<ResourceLocation>> updatedSlots = new ArrayList<>(updatedModeLoadouts.getOrDefault(modeId, normalizeSlots(List.of())));
-        updatedSlots.set(slot, Optional.ofNullable(abilityId));
-        if (updatedSlots.stream().allMatch(Optional::isEmpty)) {
-            updatedModeLoadouts.remove(modeId);
-        } else {
-            updatedModeLoadouts.put(modeId, List.copyOf(updatedSlots));
-        }
-        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
-                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
-                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
-                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, updatedModeLoadouts);
+        AbilityContainerState updatedContainerState = this.containerState.withModeAbilityInSlot(modeId, slotReference, abilityId);
+        return copyWithContainerState(updatedContainerState);
     }
 
     public AbilityData clearModeLoadout(ResourceLocation modeId) {
-        if (!this.modeLoadouts.containsKey(modeId)) {
+        AbilityContainerState updatedContainerState = this.containerState.clearModeLoadout(modeId);
+        if (updatedContainerState.equals(this.containerState)) {
             return this;
         }
-        Map<ResourceLocation, List<Optional<ResourceLocation>>> updatedModeLoadouts = new LinkedHashMap<>(this.modeLoadouts);
-        updatedModeLoadouts.remove(modeId);
-        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
-                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
-                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
-                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, updatedModeLoadouts);
+        return copyWithContainerState(updatedContainerState);
     }
 
     public AbilityData withCooldown(ResourceLocation abilityId, int ticks) {
@@ -413,7 +536,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 updatedRecoveryProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts);
     }
 
     public AbilityData tickCooldowns() {
@@ -455,7 +579,8 @@ public record AbilityData(
                         this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                         updatedRecoveryProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                         this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                        this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts)
+                        this.abilityActivationBlockSources, this.statePolicySources,
+                        this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts)
                 : this;
     }
 
@@ -472,7 +597,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withActiveDuration(ResourceLocation abilityId, int ticks) {
@@ -486,7 +612,50 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData withDetectorWindow(ResourceLocation detectorId, int ticks) {
+        Map<ResourceLocation, Integer> updatedWindows = new LinkedHashMap<>(this.detectorWindows);
+        if (ticks > 0) {
+            updatedWindows.put(detectorId, ticks);
+        } else {
+            updatedWindows.remove(detectorId);
+        }
+        return copyWithDetectors(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                updatedWindows, this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData tickDetectorWindows() {
+        if (this.detectorWindows.isEmpty()) {
+            return this;
+        }
+
+        Map<ResourceLocation, Integer> updatedWindows = new LinkedHashMap<>();
+        boolean changed = false;
+        for (Map.Entry<ResourceLocation, Integer> entry : this.detectorWindows.entrySet()) {
+            int nextValue = entry.getValue() - 1;
+            if (nextValue > 0) {
+                updatedWindows.put(entry.getKey(), nextValue);
+            }
+            if (nextValue != entry.getValue()) {
+                changed = true;
+            }
+        }
+
+        return changed
+                ? copyWithDetectors(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                        updatedWindows, this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                        this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                        this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                        this.abilityActivationBlockSources, this.statePolicySources,
+                        this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts)
+                : this;
     }
 
     public AbilityData withModeUsedInCycle(ResourceLocation cycleGroupId, ResourceLocation modeId) {
@@ -504,7 +673,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.recoveryTickProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, updatedCycleHistory, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, updatedCycleHistory, this.modeLoadouts);
     }
 
     public AbilityData clearModeCycleGroup(ResourceLocation cycleGroupId) {
@@ -517,7 +687,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.recoveryTickProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, updatedCycleHistory, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, updatedCycleHistory, this.modeLoadouts);
     }
 
     public AbilityData withComboWindow(ResourceLocation abilityId, int ticks) {
@@ -531,28 +702,29 @@ public record AbilityData(
                 updatedWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withComboOverride(int slot, @Nullable ResourceLocation abilityId, int durationTicks) {
-        if (!isValidSlot(slot)) {
+        return withComboOverride(AbilitySlotReference.primary(slot), abilityId, durationTicks);
+    }
+
+    public AbilityData withComboOverride(AbilitySlotReference slotReference, @Nullable ResourceLocation abilityId, int durationTicks) {
+        if (!isValidSlotReference(slotReference)) {
             return this;
         }
 
-        List<Optional<ResourceLocation>> updatedOverrides = new ArrayList<>(this.comboOverrides);
-        List<Integer> updatedDurations = new ArrayList<>(this.comboOverrideDurations);
-        if (abilityId != null && durationTicks > 0) {
-            updatedOverrides.set(slot, Optional.of(abilityId));
-            updatedDurations.set(slot, durationTicks);
-        } else {
-            updatedOverrides.set(slot, Optional.empty());
-            updatedDurations.set(slot, 0);
+        AbilityContainerState updatedContainerState = this.containerState.withComboOverride(slotReference, abilityId, durationTicks);
+        return copyWithContainerState(updatedContainerState);
+    }
+
+    public AbilityData withContainerActivePage(ResourceLocation containerId, int pageIndex) {
+        AbilityContainerState updatedContainerState = this.containerState.withActivePage(containerId, pageIndex);
+        if (updatedContainerState.equals(this.containerState)) {
+            return this;
         }
-        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
-                this.comboWindows, updatedOverrides, updatedDurations, this.charges, this.chargeRechargeTicks,
-                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
-                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+        return copyWithContainerState(updatedContainerState);
     }
 
     public AbilityData withChargeCount(ResourceLocation abilityId, int count) {
@@ -566,7 +738,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, updatedCharges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withChargeRecharge(ResourceLocation abilityId, int ticks) {
@@ -582,7 +755,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, updatedRechargeTicks,
                 updatedRecoveryProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts);
     }
 
     public AbilityData withRecoveryTickProgress(ResourceLocation abilityId, int progressUnits) {
@@ -596,7 +770,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 updatedRecoveryProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeCycleHistory, this.modeLoadouts);
     }
 
     public AbilityData withResourceAmount(ResourceLocation resourceId, int amount) {
@@ -613,7 +788,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 updatedResources, this.resourceRegenDelays, this.resourceDecayDelays, updatedPartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withResourceAmountExact(ResourceLocation resourceId, double amount) {
@@ -643,7 +819,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 updatedResources, this.resourceRegenDelays, this.resourceDecayDelays, updatedPartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withResourceRegenDelay(ResourceLocation resourceId, int ticks) {
@@ -657,7 +834,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, updatedDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withResourceDecayDelay(ResourceLocation resourceId, int ticks) {
@@ -671,15 +849,14 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, updatedDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearAbilityState(ResourceLocation abilityId) {
         Map<ResourceLocation, Integer> updatedCooldowns = new LinkedHashMap<>(this.cooldowns);
         Map<ResourceLocation, Integer> updatedDurations = new LinkedHashMap<>(this.activeDurations);
         Map<ResourceLocation, Integer> updatedComboWindows = new LinkedHashMap<>(this.comboWindows);
-        List<Optional<ResourceLocation>> updatedComboOverrides = new ArrayList<>(this.comboOverrides);
-        List<Integer> updatedComboOverrideDurations = new ArrayList<>(this.comboOverrideDurations);
         Map<ResourceLocation, Integer> updatedCharges = new LinkedHashMap<>(this.charges);
         Map<ResourceLocation, Integer> updatedChargeRecharge = new LinkedHashMap<>(this.chargeRechargeTicks);
         Map<ResourceLocation, Integer> updatedRecoveryProgress = new LinkedHashMap<>(this.recoveryTickProgress);
@@ -688,29 +865,25 @@ public record AbilityData(
         updatedCooldowns.remove(abilityId);
         updatedDurations.remove(abilityId);
         updatedComboWindows.remove(abilityId);
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
-            if (updatedComboOverrides.get(slot).filter(abilityId::equals).isPresent()) {
-                updatedComboOverrides.set(slot, Optional.empty());
-                updatedComboOverrideDurations.set(slot, 0);
-            }
-        }
         updatedCharges.remove(abilityId);
         updatedChargeRecharge.remove(abilityId);
         updatedRecoveryProgress.remove(abilityId);
         updatedModes.remove(abilityId);
-        return copy(this.slots, updatedCooldowns, updatedModes, updatedDurations,
-                updatedComboWindows, updatedComboOverrides, updatedComboOverrideDurations, updatedCharges, updatedChargeRecharge,
+        AbilityContainerState updatedContainerState = this.containerState.clearAbilityState(abilityId);
+        AbilityData updatedData = copy(this.slots, updatedCooldowns, updatedModes, updatedDurations,
+                updatedComboWindows, this.comboOverrides, this.comboOverrideDurations, updatedCharges, updatedChargeRecharge,
                 updatedRecoveryProgress, this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.resourcePartials, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, updatedCycleHistory, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, updatedCycleHistory, this.modeLoadouts);
+        return updatedContainerState.equals(this.containerState) ? updatedData : updatedData.copyWithContainerState(updatedContainerState);
     }
 
     public AbilityData clearComboWindowsForAbility(ResourceLocation abilityId) {
         AbilityData updatedData = withComboWindow(abilityId, 0);
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
-            if (updatedData.comboOverrideInSlot(slot).filter(abilityId::equals).isPresent()) {
-                updatedData = updatedData.withComboOverride(slot, null, 0);
-            }
+        AbilityContainerState updatedContainerState = updatedData.containerState.clearComboOverridesForAbility(abilityId);
+        if (!updatedContainerState.equals(updatedData.containerState)) {
+            updatedData = updatedData.copyWithContainerState(updatedContainerState);
         }
         return updatedData;
     }
@@ -737,39 +910,14 @@ public record AbilityData(
                         updatedWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                         this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                         this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                        this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts)
+                        this.abilityActivationBlockSources, this.statePolicySources,
+                        this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts)
                 : this;
     }
 
     public AbilityData tickComboOverrides() {
-        boolean changed = false;
-        List<Optional<ResourceLocation>> updatedOverrides = new ArrayList<>(this.comboOverrides);
-        List<Integer> updatedDurations = new ArrayList<>(this.comboOverrideDurations);
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
-            int remainingTicks = updatedDurations.get(slot);
-            if (remainingTicks <= 0) {
-                if (updatedOverrides.get(slot).isPresent()) {
-                    updatedOverrides.set(slot, Optional.empty());
-                    changed = true;
-                }
-                continue;
-            }
-
-            int nextTicks = remainingTicks - 1;
-            updatedDurations.set(slot, Math.max(nextTicks, 0));
-            if (nextTicks <= 0) {
-                updatedOverrides.set(slot, Optional.empty());
-            }
-            changed = true;
-        }
-
-        return changed
-                ? copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
-                        this.comboWindows, updatedOverrides, updatedDurations, this.charges, this.chargeRechargeTicks,
-                        this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
-                        this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                        this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts)
-                : this;
+        AbilityContainerState updatedContainerState = this.containerState.tickComboOverrides();
+        return updatedContainerState.equals(this.containerState) ? this : copyWithContainerState(updatedContainerState);
     }
 
     public AbilityData withAbilityGrantSource(ResourceLocation abilityId, ResourceLocation sourceId, boolean granted) {
@@ -778,7 +926,8 @@ public record AbilityData(
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays,
                 updateGrantSourceMap(this.abilityGrantSources, abilityId, sourceId, granted),
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withPassiveGrantSource(ResourceLocation passiveId, ResourceLocation sourceId, boolean granted) {
@@ -786,7 +935,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 updateGrantSourceMap(this.passiveGrantSources, passiveId, sourceId, granted), this.grantedItemSources,
-                this.recipePermissionSources, this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.recipePermissionSources, this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withGrantedItemSource(ResourceLocation grantedItemId, ResourceLocation sourceId, boolean granted) {
@@ -794,7 +944,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, updateGrantSourceMap(this.grantedItemSources, grantedItemId, sourceId, granted),
-                this.recipePermissionSources, this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.recipePermissionSources, this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withRecipePermissionSource(ResourceLocation recipeId, ResourceLocation sourceId, boolean granted) {
@@ -803,7 +954,8 @@ public record AbilityData(
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources,
                 updateGrantSourceMap(this.recipePermissionSources, recipeId, sourceId, granted),
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withAbilityActivationBlockSource(ResourceLocation abilityId, ResourceLocation sourceId, boolean blocked) {
@@ -812,6 +964,47 @@ public record AbilityData(
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
                 updateGrantSourceMap(this.abilityActivationBlockSources, abilityId, sourceId, blocked),
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData withStatePolicySource(ResourceLocation statePolicyId, ResourceLocation sourceId, boolean active) {
+        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, updateGrantSourceMap(this.statePolicySources, statePolicyId, sourceId, active),
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData withStateFlagSource(ResourceLocation stateFlagId, ResourceLocation sourceId, boolean active) {
+        return copyWithStateFlags(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources,
+                updateGrantSourceMap(this.stateFlagSources, stateFlagId, sourceId, active), this.grantBundleSources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData withGrantBundleSource(ResourceLocation bundleId, ResourceLocation sourceId, boolean active) {
+        return copyWithStateFlags(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.stateFlagSources, updateGrantSourceMap(this.grantBundleSources, bundleId, sourceId, active),
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData withArtifactUnlockSource(ResourceLocation artifactId, ResourceLocation sourceId, boolean unlocked) {
+        return copyWithArtifacts(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.detectorWindows,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.stateFlagSources, this.grantBundleSources,
+                updateGrantSourceMap(this.artifactUnlockSources, artifactId, sourceId, unlocked),
                 this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
@@ -820,7 +1013,7 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, Map.of(), this.passiveGrantSources,
                 this.grantedItemSources, this.recipePermissionSources, this.abilityActivationBlockSources,
-                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearPassiveGrantSources() {
@@ -828,7 +1021,7 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources, Map.of(),
                 this.grantedItemSources, this.recipePermissionSources, this.abilityActivationBlockSources,
-                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearGrantedItemSources() {
@@ -836,7 +1029,7 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, Map.of(), this.recipePermissionSources, this.abilityActivationBlockSources,
-                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearRecipePermissionSources() {
@@ -844,7 +1037,7 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, Map.of(), this.abilityActivationBlockSources,
-                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearAbilityActivationBlockSources() {
@@ -852,6 +1045,33 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources, Map.of(),
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData clearStatePolicySources() {
+        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, Map.of(),
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData clearStateFlagSources() {
+        return copyWithStateFlags(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources, Map.of(), this.grantBundleSources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData clearGrantBundleSources() {
+        return copyWithStateFlags(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources, this.stateFlagSources, Map.of(),
                 this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
@@ -860,7 +1080,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, removeGrantSource(this.abilityGrantSources, sourceId),
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearPassiveGrantSource(ResourceLocation sourceId) {
@@ -868,7 +1089,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 removeGrantSource(this.passiveGrantSources, sourceId), this.grantedItemSources,
-                this.recipePermissionSources, this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.recipePermissionSources, this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearGrantedItemSource(ResourceLocation sourceId) {
@@ -876,7 +1098,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, removeGrantSource(this.grantedItemSources, sourceId),
-                this.recipePermissionSources, this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.recipePermissionSources, this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearRecipePermissionSource(ResourceLocation sourceId) {
@@ -884,7 +1107,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, removeGrantSource(this.recipePermissionSources, sourceId),
-                this.abilityActivationBlockSources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearAbilityActivationBlockSource(ResourceLocation sourceId) {
@@ -893,16 +1117,49 @@ public record AbilityData(
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
                 removeGrantSource(this.abilityActivationBlockSources, sourceId),
+                this.statePolicySources, this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData clearStatePolicySource(ResourceLocation sourceId) {
+        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, removeGrantSource(this.statePolicySources, sourceId),
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData clearStateFlagSource(ResourceLocation sourceId) {
+        return copyWithStateFlags(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources, removeGrantSource(this.stateFlagSources, sourceId),
+                this.grantBundleSources,
+                this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
+    }
+
+    public AbilityData clearGrantBundleSource(ResourceLocation sourceId) {
+        return copyWithStateFlags(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
+                this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
+                this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
+                this.abilityActivationBlockSources, this.statePolicySources, this.stateFlagSources,
+                removeGrantSource(this.grantBundleSources, sourceId),
                 this.managedGrantSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData clearGrantSource(ResourceLocation sourceId) {
-        return copy(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+        return copyWithArtifacts(this.slots, this.cooldowns, this.activeModes, this.activeDurations,
+                this.detectorWindows,
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, removeGrantSource(this.abilityGrantSources, sourceId),
                 removeGrantSource(this.passiveGrantSources, sourceId), removeGrantSource(this.grantedItemSources, sourceId),
                 removeGrantSource(this.recipePermissionSources, sourceId), removeGrantSource(this.abilityActivationBlockSources, sourceId),
-                removeFromSet(this.managedGrantSources, sourceId), this.abilityAccessRestricted, this.modeLoadouts);
+                removeGrantSource(this.statePolicySources, sourceId), removeGrantSource(this.stateFlagSources, sourceId),
+                removeGrantSource(this.grantBundleSources, sourceId), removeGrantSource(this.artifactUnlockSources, sourceId),
+                removeFromSet(this.managedGrantSources, sourceId),
+                this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withManagedGrantSource(ResourceLocation sourceId, boolean managed) {
@@ -916,7 +1173,8 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, updatedManagedSources, this.abilityAccessRestricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                updatedManagedSources, this.abilityAccessRestricted, this.modeLoadouts);
     }
 
     public AbilityData withAbilityAccessRestricted(boolean restricted) {
@@ -924,11 +1182,35 @@ public record AbilityData(
                 this.comboWindows, this.comboOverrides, this.comboOverrideDurations, this.charges, this.chargeRechargeTicks,
                 this.resources, this.resourceRegenDelays, this.resourceDecayDelays, this.abilityGrantSources,
                 this.passiveGrantSources, this.grantedItemSources, this.recipePermissionSources,
-                this.abilityActivationBlockSources, this.managedGrantSources, restricted, this.modeLoadouts);
+                this.abilityActivationBlockSources, this.statePolicySources,
+                this.managedGrantSources, restricted, this.modeLoadouts);
     }
 
     private static boolean isValidSlot(int slot) {
         return slot >= 0 && slot < SLOT_COUNT;
+    }
+
+    private static boolean isValidSlotReference(AbilitySlotReference slotReference) {
+        return AbilitySlotContainerApi.isPrimarySlotReference(slotReference);
+    }
+
+    private static AbilityContainerState collapseToPrimaryBar(
+            AbilityContainerState containerState,
+            List<Optional<ResourceLocation>> slots,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+    ) {
+        AbilityContainerState resolvedState = containerState;
+        if (resolvedState.isEmpty()) {
+            resolvedState = AbilityContainerState.fromLegacy(slots, comboOverrides, comboOverrideDurations, modeLoadouts);
+        }
+        return AbilityContainerState.fromLegacy(
+                resolvedState.legacyPrimarySlots(SLOT_COUNT),
+                resolvedState.legacyPrimaryComboOverrides(SLOT_COUNT),
+                resolvedState.legacyPrimaryComboDurations(SLOT_COUNT),
+                resolvedState.legacyPrimaryModeLoadouts(SLOT_COUNT)
+        );
     }
 
     private static List<Optional<ResourceLocation>> normalizeSlots(List<Optional<ResourceLocation>> slots) {
@@ -1107,50 +1389,37 @@ public record AbilityData(
         return Map.copyOf(updatedMap);
     }
 
-    private AbilityData copy(
-            List<Optional<ResourceLocation>> slots,
-            Map<ResourceLocation, Integer> cooldowns,
-            Set<ResourceLocation> activeModes,
-            Map<ResourceLocation, Integer> activeDurations,
-            Map<ResourceLocation, Integer> comboWindows,
-            List<Optional<ResourceLocation>> comboOverrides,
-            List<Integer> comboOverrideDurations,
-            Map<ResourceLocation, Integer> charges,
-            Map<ResourceLocation, Integer> chargeRechargeTicks,
-            Map<ResourceLocation, Integer> resources,
-            Map<ResourceLocation, Integer> resourceRegenDelays,
-            Map<ResourceLocation, Integer> resourceDecayDelays,
-            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
-            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
-            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
-            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
-            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
-            Set<ResourceLocation> managedGrantSources,
-            boolean abilityAccessRestricted,
-            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
-    ) {
+    private AbilityData copyWithContainerState(AbilityContainerState containerState) {
         return copy(
-                slots,
-                cooldowns,
-                activeModes,
-                activeDurations,
-                comboWindows,
-                comboOverrides,
-                comboOverrideDurations,
-                charges,
-                chargeRechargeTicks,
-                resources,
-                resourceRegenDelays,
-                resourceDecayDelays,
+                containerState.legacyPrimarySlots(SLOT_COUNT),
+                this.cooldowns,
+                this.activeModes,
+                this.activeDurations,
+                this.detectorWindows,
+                this.comboWindows,
+                containerState.legacyPrimaryComboOverrides(SLOT_COUNT),
+                containerState.legacyPrimaryComboDurations(SLOT_COUNT),
+                this.charges,
+                this.chargeRechargeTicks,
+                this.recoveryTickProgress,
+                this.resources,
+                this.resourceRegenDelays,
+                this.resourceDecayDelays,
                 this.resourcePartials,
-                abilityGrantSources,
-                passiveGrantSources,
-                grantedItemSources,
-                recipePermissionSources,
-                abilityActivationBlockSources,
-                managedGrantSources,
-                abilityAccessRestricted,
-                modeLoadouts
+                this.abilityGrantSources,
+                this.passiveGrantSources,
+                this.grantedItemSources,
+                this.recipePermissionSources,
+                this.abilityActivationBlockSources,
+                this.statePolicySources,
+                this.stateFlagSources,
+                this.grantBundleSources,
+                this.artifactUnlockSources,
+                this.managedGrantSources,
+                this.abilityAccessRestricted,
+                this.modeCycleHistory,
+                containerState.legacyPrimaryModeLoadouts(SLOT_COUNT),
+                containerState
         );
     }
 
@@ -1167,12 +1436,172 @@ public record AbilityData(
             Map<ResourceLocation, Integer> resources,
             Map<ResourceLocation, Integer> resourceRegenDelays,
             Map<ResourceLocation, Integer> resourceDecayDelays,
-            Map<ResourceLocation, Integer> resourcePartials,
             Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
             Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
             Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
             Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
             Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Set<ResourceLocation> managedGrantSources,
+            boolean abilityAccessRestricted,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+    ) {
+        return copyWithDetectors(
+                slots,
+                cooldowns,
+                activeModes,
+                activeDurations,
+                this.detectorWindows,
+                comboWindows,
+                comboOverrides,
+                comboOverrideDurations,
+                charges,
+                chargeRechargeTicks,
+                resources,
+                resourceRegenDelays,
+                resourceDecayDelays,
+                abilityGrantSources,
+                passiveGrantSources,
+                grantedItemSources,
+                recipePermissionSources,
+                abilityActivationBlockSources,
+                statePolicySources,
+                managedGrantSources,
+                abilityAccessRestricted,
+                modeLoadouts
+        );
+    }
+
+    private AbilityData copyWithDetectors(
+            List<Optional<ResourceLocation>> slots,
+            Map<ResourceLocation, Integer> cooldowns,
+            Set<ResourceLocation> activeModes,
+            Map<ResourceLocation, Integer> activeDurations,
+            Map<ResourceLocation, Integer> detectorWindows,
+            Map<ResourceLocation, Integer> comboWindows,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, Integer> charges,
+            Map<ResourceLocation, Integer> chargeRechargeTicks,
+            Map<ResourceLocation, Integer> resources,
+            Map<ResourceLocation, Integer> resourceRegenDelays,
+            Map<ResourceLocation, Integer> resourceDecayDelays,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
+            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Set<ResourceLocation> managedGrantSources,
+            boolean abilityAccessRestricted,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+    ) {
+        return copyWithArtifacts(
+                slots,
+                cooldowns,
+                activeModes,
+                activeDurations,
+                detectorWindows,
+                comboWindows,
+                comboOverrides,
+                comboOverrideDurations,
+                charges,
+                chargeRechargeTicks,
+                resources,
+                resourceRegenDelays,
+                resourceDecayDelays,
+                abilityGrantSources,
+                passiveGrantSources,
+                grantedItemSources,
+                recipePermissionSources,
+                abilityActivationBlockSources,
+                statePolicySources,
+                this.stateFlagSources,
+                this.grantBundleSources,
+                this.artifactUnlockSources,
+                managedGrantSources,
+                abilityAccessRestricted,
+                modeLoadouts
+        );
+    }
+
+    private AbilityData copyWithStateFlags(
+            List<Optional<ResourceLocation>> slots,
+            Map<ResourceLocation, Integer> cooldowns,
+            Set<ResourceLocation> activeModes,
+            Map<ResourceLocation, Integer> activeDurations,
+            Map<ResourceLocation, Integer> comboWindows,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, Integer> charges,
+            Map<ResourceLocation, Integer> chargeRechargeTicks,
+            Map<ResourceLocation, Integer> resources,
+            Map<ResourceLocation, Integer> resourceRegenDelays,
+            Map<ResourceLocation, Integer> resourceDecayDelays,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
+            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Map<ResourceLocation, Set<ResourceLocation>> stateFlagSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantBundleSources,
+            Set<ResourceLocation> managedGrantSources,
+            boolean abilityAccessRestricted,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+    ) {
+        return copyWithArtifacts(
+                slots,
+                cooldowns,
+                activeModes,
+                activeDurations,
+                this.detectorWindows,
+                comboWindows,
+                comboOverrides,
+                comboOverrideDurations,
+                charges,
+                chargeRechargeTicks,
+                resources,
+                resourceRegenDelays,
+                resourceDecayDelays,
+                abilityGrantSources,
+                passiveGrantSources,
+                grantedItemSources,
+                recipePermissionSources,
+                abilityActivationBlockSources,
+                statePolicySources,
+                stateFlagSources,
+                grantBundleSources,
+                this.artifactUnlockSources,
+                managedGrantSources,
+                abilityAccessRestricted,
+                modeLoadouts
+        );
+    }
+
+    private AbilityData copyWithArtifacts(
+            List<Optional<ResourceLocation>> slots,
+            Map<ResourceLocation, Integer> cooldowns,
+            Set<ResourceLocation> activeModes,
+            Map<ResourceLocation, Integer> activeDurations,
+            Map<ResourceLocation, Integer> detectorWindows,
+            Map<ResourceLocation, Integer> comboWindows,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, Integer> charges,
+            Map<ResourceLocation, Integer> chargeRechargeTicks,
+            Map<ResourceLocation, Integer> resources,
+            Map<ResourceLocation, Integer> resourceRegenDelays,
+            Map<ResourceLocation, Integer> resourceDecayDelays,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
+            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Map<ResourceLocation, Set<ResourceLocation>> stateFlagSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantBundleSources,
+            Map<ResourceLocation, Set<ResourceLocation>> artifactUnlockSources,
             Set<ResourceLocation> managedGrantSources,
             boolean abilityAccessRestricted,
             Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
@@ -1182,6 +1611,7 @@ public record AbilityData(
                 cooldowns,
                 activeModes,
                 activeDurations,
+                detectorWindows,
                 comboWindows,
                 comboOverrides,
                 comboOverrideDurations,
@@ -1191,20 +1621,25 @@ public record AbilityData(
                 resources,
                 resourceRegenDelays,
                 resourceDecayDelays,
-                resourcePartials,
+                this.resourcePartials,
                 abilityGrantSources,
                 passiveGrantSources,
                 grantedItemSources,
                 recipePermissionSources,
                 abilityActivationBlockSources,
+                statePolicySources,
+                stateFlagSources,
+                grantBundleSources,
+                artifactUnlockSources,
                 managedGrantSources,
                 abilityAccessRestricted,
                 this.modeCycleHistory,
-                modeLoadouts
+                modeLoadouts,
+                this.containerState
         );
     }
 
-    private static AbilityData copy(
+    private AbilityData copy(
             List<Optional<ResourceLocation>> slots,
             Map<ResourceLocation, Integer> cooldowns,
             Set<ResourceLocation> activeModes,
@@ -1224,16 +1659,18 @@ public record AbilityData(
             Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
             Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
             Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
             Set<ResourceLocation> managedGrantSources,
             boolean abilityAccessRestricted,
             Map<ResourceLocation, List<ResourceLocation>> modeCycleHistory,
             Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
     ) {
-        return new AbilityData(
+        return copy(
                 slots,
                 cooldowns,
                 activeModes,
                 activeDurations,
+                this.detectorWindows,
                 comboWindows,
                 comboOverrides,
                 comboOverrideDurations,
@@ -1249,10 +1686,196 @@ public record AbilityData(
                 grantedItemSources,
                 recipePermissionSources,
                 abilityActivationBlockSources,
+                statePolicySources,
+                this.stateFlagSources,
+                this.grantBundleSources,
+                this.artifactUnlockSources,
                 managedGrantSources,
                 abilityAccessRestricted,
                 modeCycleHistory,
-                modeLoadouts
+                modeLoadouts,
+                this.containerState
+        );
+    }
+
+    private AbilityData copy(
+            List<Optional<ResourceLocation>> slots,
+            Map<ResourceLocation, Integer> cooldowns,
+            Set<ResourceLocation> activeModes,
+            Map<ResourceLocation, Integer> activeDurations,
+            Map<ResourceLocation, Integer> comboWindows,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, Integer> charges,
+            Map<ResourceLocation, Integer> chargeRechargeTicks,
+            Map<ResourceLocation, Integer> resources,
+            Map<ResourceLocation, Integer> resourceRegenDelays,
+            Map<ResourceLocation, Integer> resourceDecayDelays,
+            Map<ResourceLocation, Integer> resourcePartials,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
+            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Set<ResourceLocation> managedGrantSources,
+            boolean abilityAccessRestricted,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+    ) {
+        return copy(
+                slots,
+                cooldowns,
+                activeModes,
+                activeDurations,
+                this.detectorWindows,
+                comboWindows,
+                comboOverrides,
+                comboOverrideDurations,
+                charges,
+                chargeRechargeTicks,
+                this.recoveryTickProgress,
+                resources,
+                resourceRegenDelays,
+                resourceDecayDelays,
+                resourcePartials,
+                abilityGrantSources,
+                passiveGrantSources,
+                grantedItemSources,
+                recipePermissionSources,
+                abilityActivationBlockSources,
+                statePolicySources,
+                this.stateFlagSources,
+                this.grantBundleSources,
+                this.artifactUnlockSources,
+                managedGrantSources,
+                abilityAccessRestricted,
+                this.modeCycleHistory,
+                modeLoadouts,
+                this.containerState
+        );
+    }
+
+    private AbilityData copyWithStateFlags(
+            List<Optional<ResourceLocation>> slots,
+            Map<ResourceLocation, Integer> cooldowns,
+            Set<ResourceLocation> activeModes,
+            Map<ResourceLocation, Integer> activeDurations,
+            Map<ResourceLocation, Integer> comboWindows,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, Integer> charges,
+            Map<ResourceLocation, Integer> chargeRechargeTicks,
+            Map<ResourceLocation, Integer> resources,
+            Map<ResourceLocation, Integer> resourceRegenDelays,
+            Map<ResourceLocation, Integer> resourceDecayDelays,
+            Map<ResourceLocation, Integer> resourcePartials,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
+            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Map<ResourceLocation, Set<ResourceLocation>> stateFlagSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantBundleSources,
+            Map<ResourceLocation, Set<ResourceLocation>> artifactUnlockSources,
+            Set<ResourceLocation> managedGrantSources,
+            boolean abilityAccessRestricted,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts
+    ) {
+        return copy(
+                slots,
+                cooldowns,
+                activeModes,
+                activeDurations,
+                this.detectorWindows,
+                comboWindows,
+                comboOverrides,
+                comboOverrideDurations,
+                charges,
+                chargeRechargeTicks,
+                this.recoveryTickProgress,
+                resources,
+                resourceRegenDelays,
+                resourceDecayDelays,
+                resourcePartials,
+                abilityGrantSources,
+                passiveGrantSources,
+                grantedItemSources,
+                recipePermissionSources,
+                abilityActivationBlockSources,
+                statePolicySources,
+                stateFlagSources,
+                grantBundleSources,
+                artifactUnlockSources,
+                managedGrantSources,
+                abilityAccessRestricted,
+                this.modeCycleHistory,
+                modeLoadouts,
+                this.containerState
+        );
+    }
+
+    private static AbilityData copy(
+            List<Optional<ResourceLocation>> slots,
+            Map<ResourceLocation, Integer> cooldowns,
+            Set<ResourceLocation> activeModes,
+            Map<ResourceLocation, Integer> activeDurations,
+            Map<ResourceLocation, Integer> detectorWindows,
+            Map<ResourceLocation, Integer> comboWindows,
+            List<Optional<ResourceLocation>> comboOverrides,
+            List<Integer> comboOverrideDurations,
+            Map<ResourceLocation, Integer> charges,
+            Map<ResourceLocation, Integer> chargeRechargeTicks,
+            Map<ResourceLocation, Integer> recoveryTickProgress,
+            Map<ResourceLocation, Integer> resources,
+            Map<ResourceLocation, Integer> resourceRegenDelays,
+            Map<ResourceLocation, Integer> resourceDecayDelays,
+            Map<ResourceLocation, Integer> resourcePartials,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> passiveGrantSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantedItemSources,
+            Map<ResourceLocation, Set<ResourceLocation>> recipePermissionSources,
+            Map<ResourceLocation, Set<ResourceLocation>> abilityActivationBlockSources,
+            Map<ResourceLocation, Set<ResourceLocation>> statePolicySources,
+            Map<ResourceLocation, Set<ResourceLocation>> stateFlagSources,
+            Map<ResourceLocation, Set<ResourceLocation>> grantBundleSources,
+            Map<ResourceLocation, Set<ResourceLocation>> artifactUnlockSources,
+            Set<ResourceLocation> managedGrantSources,
+            boolean abilityAccessRestricted,
+            Map<ResourceLocation, List<ResourceLocation>> modeCycleHistory,
+            Map<ResourceLocation, List<Optional<ResourceLocation>>> modeLoadouts,
+            AbilityContainerState containerState
+    ) {
+        return new AbilityData(
+                slots,
+                cooldowns,
+                activeModes,
+                activeDurations,
+                detectorWindows,
+                comboWindows,
+                comboOverrides,
+                comboOverrideDurations,
+                charges,
+                chargeRechargeTicks,
+                recoveryTickProgress,
+                resources,
+                resourceRegenDelays,
+                resourceDecayDelays,
+                resourcePartials,
+                abilityGrantSources,
+                passiveGrantSources,
+                grantedItemSources,
+                recipePermissionSources,
+                abilityActivationBlockSources,
+                statePolicySources,
+                stateFlagSources,
+                grantBundleSources,
+                artifactUnlockSources,
+                managedGrantSources,
+                abilityAccessRestricted,
+                modeCycleHistory,
+                modeLoadouts,
+                containerState
         );
     }
 }

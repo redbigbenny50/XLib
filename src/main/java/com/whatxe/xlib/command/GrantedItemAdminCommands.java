@@ -64,6 +64,18 @@ final class GrantedItemAdminCommands {
                             + " | " + definitionSummary),
                     false
             );
+            if (definition != null) {
+                source.sendSuccess(
+                        () -> Component.literal(grantedItemId + " | metadata="
+                                + XLibCommandSupport.formatMetadata(
+                                        definition.familyId(),
+                                        definition.groupId(),
+                                        definition.pageId(),
+                                        definition.tags()
+                                )),
+                        false
+                );
+            }
         }
         return grantedItems.size();
     }
@@ -78,6 +90,16 @@ final class GrantedItemAdminCommands {
                         + " | remove_when_revoked=" + definition.removeWhenRevoked()
                         + " | storage_policy=" + definition.storagePolicy().name().toLowerCase(Locale.ROOT)
         ), false);
+        source.sendSuccess(
+                () -> Component.literal("metadata="
+                        + XLibCommandSupport.formatMetadata(
+                                definition.familyId(),
+                                definition.groupId(),
+                                definition.pageId(),
+                                definition.tags()
+                        )),
+                false
+        );
         return 1;
     }
 }

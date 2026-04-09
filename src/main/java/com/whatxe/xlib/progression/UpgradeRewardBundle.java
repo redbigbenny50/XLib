@@ -11,17 +11,20 @@ public final class UpgradeRewardBundle {
     private final Set<ResourceLocation> passives;
     private final Set<ResourceLocation> grantedItems;
     private final Set<ResourceLocation> recipePermissions;
+    private final Set<ResourceLocation> identities;
 
     private UpgradeRewardBundle(
             Set<ResourceLocation> abilities,
             Set<ResourceLocation> passives,
             Set<ResourceLocation> grantedItems,
-            Set<ResourceLocation> recipePermissions
+            Set<ResourceLocation> recipePermissions,
+            Set<ResourceLocation> identities
     ) {
         this.abilities = Set.copyOf(abilities);
         this.passives = Set.copyOf(passives);
         this.grantedItems = Set.copyOf(grantedItems);
         this.recipePermissions = Set.copyOf(recipePermissions);
+        this.identities = Set.copyOf(identities);
     }
 
     public static Builder builder() {
@@ -44,11 +47,16 @@ public final class UpgradeRewardBundle {
         return this.recipePermissions;
     }
 
+    public Set<ResourceLocation> identities() {
+        return this.identities;
+    }
+
     public static final class Builder {
         private final Set<ResourceLocation> abilities = new LinkedHashSet<>();
         private final Set<ResourceLocation> passives = new LinkedHashSet<>();
         private final Set<ResourceLocation> grantedItems = new LinkedHashSet<>();
         private final Set<ResourceLocation> recipePermissions = new LinkedHashSet<>();
+        private final Set<ResourceLocation> identities = new LinkedHashSet<>();
 
         private Builder() {}
 
@@ -92,8 +100,18 @@ public final class UpgradeRewardBundle {
             return this;
         }
 
+        public Builder grantIdentity(ResourceLocation identityId) {
+            this.identities.add(Objects.requireNonNull(identityId, "identityId"));
+            return this;
+        }
+
+        public Builder grantIdentities(Collection<ResourceLocation> identityIds) {
+            identityIds.stream().filter(Objects::nonNull).forEach(this.identities::add);
+            return this;
+        }
+
         public UpgradeRewardBundle build() {
-            return new UpgradeRewardBundle(this.abilities, this.passives, this.grantedItems, this.recipePermissions);
+            return new UpgradeRewardBundle(this.abilities, this.passives, this.grantedItems, this.recipePermissions, this.identities);
         }
     }
 }

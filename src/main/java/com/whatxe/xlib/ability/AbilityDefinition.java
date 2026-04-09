@@ -1,18 +1,22 @@
 package com.whatxe.xlib.ability;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Collection;
 import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
 public final class AbilityDefinition {
     @FunctionalInterface
@@ -54,8 +58,13 @@ public final class AbilityDefinition {
     private final AbilityCooldownPolicy cooldownPolicy;
     private final boolean toggleAbility;
     private final int durationTicks;
+    private final int chargeReleaseMaxTicks;
     private final int maxCharges;
     private final int chargeRechargeTicks;
+    private final ResourceLocation familyId;
+    private final ResourceLocation groupId;
+    private final ResourceLocation pageId;
+    private final Set<ResourceLocation> tags;
     private final List<AbilityRequirement> assignRequirements;
     private final List<AbilityRequirement> activateRequirements;
     private final List<AbilityRequirement> stayActiveRequirements;
@@ -73,8 +82,13 @@ public final class AbilityDefinition {
             AbilityCooldownPolicy cooldownPolicy,
             boolean toggleAbility,
             int durationTicks,
+            int chargeReleaseMaxTicks,
             int maxCharges,
             int chargeRechargeTicks,
+            ResourceLocation familyId,
+            ResourceLocation groupId,
+            ResourceLocation pageId,
+            Set<ResourceLocation> tags,
             List<AbilityRequirement> assignRequirements,
             List<AbilityRequirement> activateRequirements,
             List<AbilityRequirement> stayActiveRequirements,
@@ -91,8 +105,13 @@ public final class AbilityDefinition {
         this.cooldownPolicy = cooldownPolicy;
         this.toggleAbility = toggleAbility;
         this.durationTicks = durationTicks;
+        this.chargeReleaseMaxTicks = chargeReleaseMaxTicks;
         this.maxCharges = maxCharges;
         this.chargeRechargeTicks = chargeRechargeTicks;
+        this.familyId = familyId;
+        this.groupId = groupId;
+        this.pageId = pageId;
+        this.tags = copyTags(tags);
         this.assignRequirements = List.copyOf(assignRequirements);
         this.activateRequirements = List.copyOf(activateRequirements);
         this.stayActiveRequirements = List.copyOf(stayActiveRequirements);
@@ -136,12 +155,55 @@ public final class AbilityDefinition {
         return this.durationTicks;
     }
 
+    public boolean isChargeReleaseAbility() {
+        return this.chargeReleaseMaxTicks > 0;
+    }
+
+    public int chargeReleaseMaxTicks() {
+        return this.chargeReleaseMaxTicks;
+    }
+
     public int maxCharges() {
         return this.maxCharges;
     }
 
     public int chargeRechargeTicks() {
         return this.chargeRechargeTicks;
+    }
+
+    public Optional<ResourceLocation> familyId() {
+        return Optional.ofNullable(this.familyId);
+    }
+
+    public Optional<ResourceLocation> groupId() {
+        return Optional.ofNullable(this.groupId);
+    }
+
+    public Optional<ResourceLocation> pageId() {
+        return Optional.ofNullable(this.pageId);
+    }
+
+    public Set<ResourceLocation> tags() {
+        return this.tags;
+    }
+
+    public boolean hasTag(ResourceLocation tagId) {
+        return this.tags.contains(tagId);
+    }
+
+    public List<ResourceLocation> metadataIds() {
+        List<ResourceLocation> ids = new ArrayList<>(3 + this.tags.size());
+        if (this.familyId != null) {
+            ids.add(this.familyId);
+        }
+        if (this.groupId != null) {
+            ids.add(this.groupId);
+        }
+        if (this.pageId != null) {
+            ids.add(this.pageId);
+        }
+        ids.addAll(this.tags);
+        return List.copyOf(ids);
     }
 
     public boolean usesCharges() {
@@ -206,6 +268,22 @@ public final class AbilityDefinition {
         return this.ender.end(player, data, reason);
     }
 
+    public int resolvedChargeReleaseTicks(AbilityData data, @Nullable AbilityEndReason reason) {
+        if (!isChargeReleaseAbility()) {
+            return 0;
+        }
+
+        if (reason == AbilityEndReason.DURATION_EXPIRED) {
+            return this.chargeReleaseMaxTicks;
+        }
+
+        int remainingTicks = data.activeDurationFor(this.id);
+        if (remainingTicks <= 0) {
+            return 0;
+        }
+        return Math.max(0, Math.min(this.chargeReleaseMaxTicks, this.chargeReleaseMaxTicks - remainingTicks));
+    }
+
     public Optional<Component> firstFailedAssignRequirement(Player player, AbilityData data) {
         return AbilityRequirements.firstFailure(player, data, this.assignRequirements);
     }
@@ -238,6 +316,10 @@ public final class AbilityDefinition {
         return Map.copyOf(copied);
     }
 
+    private static Set<ResourceLocation> copyTags(Collection<ResourceLocation> source) {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(source));
+    }
+
     public static final class Builder {
         private final ResourceLocation id;
         private final AbilityIcon icon;
@@ -245,8 +327,13 @@ public final class AbilityDefinition {
         private AbilityCooldownPolicy cooldownPolicy = AbilityCooldownPolicy.ON_USE;
         private boolean toggleAbility;
         private int durationTicks;
+        private int chargeReleaseMaxTicks;
         private int maxCharges = 1;
         private int chargeRechargeTicks;
+        private ResourceLocation familyId;
+        private ResourceLocation groupId;
+        private ResourceLocation pageId;
+        private final Set<ResourceLocation> tags = new LinkedHashSet<>();
         private final List<AbilityRequirement> assignRequirements = new ArrayList<>();
         private final List<AbilityRequirement> activateRequirements = new ArrayList<>();
         private final List<AbilityRequirement> stayActiveRequirements = new ArrayList<>();
@@ -285,6 +372,31 @@ public final class AbilityDefinition {
         public Builder charges(int maxCharges, int chargeRechargeTicks) {
             this.maxCharges = maxCharges;
             this.chargeRechargeTicks = chargeRechargeTicks;
+            return this;
+        }
+
+        public Builder family(ResourceLocation familyId) {
+            this.familyId = Objects.requireNonNull(familyId, "familyId");
+            return this;
+        }
+
+        public Builder group(ResourceLocation groupId) {
+            this.groupId = Objects.requireNonNull(groupId, "groupId");
+            return this;
+        }
+
+        public Builder page(ResourceLocation pageId) {
+            this.pageId = Objects.requireNonNull(pageId, "pageId");
+            return this;
+        }
+
+        public Builder tag(ResourceLocation tagId) {
+            this.tags.add(Objects.requireNonNull(tagId, "tagId"));
+            return this;
+        }
+
+        public Builder tags(Collection<ResourceLocation> tagIds) {
+            tagIds.stream().filter(Objects::nonNull).forEach(this.tags::add);
             return this;
         }
 
@@ -341,6 +453,7 @@ public final class AbilityDefinition {
             ChargeReleaseReleaseAction resolvedReleaseAction = Objects.requireNonNull(releaseAction, "releaseAction");
             this.toggleAbility = true;
             this.durationTicks = maxChargeTicks;
+            this.chargeReleaseMaxTicks = maxChargeTicks;
             this.action = resolvedStartAction::start;
             this.ticker = (player, data) -> resolvedTickAction.tick(
                     player,
@@ -355,6 +468,17 @@ public final class AbilityDefinition {
                     resolveChargeReleaseTicks(this.id, data, maxChargeTicks, reason),
                     maxChargeTicks
             );
+            return this;
+        }
+
+        public Builder sequence(AbilitySequenceDefinition sequence) {
+            AbilitySequenceDefinition resolvedSequence = Objects.requireNonNull(sequence, "sequence");
+            this.toggleAbility = true;
+            this.durationTicks = resolvedSequence.totalDurationTicks();
+            this.chargeReleaseMaxTicks = 0;
+            this.action = (player, data) -> resolvedSequence.activate(this.id, player, data);
+            this.ticker = (player, data) -> resolvedSequence.tick(this.id, player, data);
+            this.ender = (player, data, reason) -> resolvedSequence.end(this.id, player, data, reason);
             return this;
         }
 
@@ -416,8 +540,13 @@ public final class AbilityDefinition {
                     this.cooldownPolicy,
                     this.toggleAbility,
                     this.durationTicks,
+                    this.chargeReleaseMaxTicks,
                     this.maxCharges,
                     this.chargeRechargeTicks,
+                    this.familyId,
+                    this.groupId,
+                    this.pageId,
+                    this.tags,
                     this.assignRequirements,
                     this.activateRequirements,
                     this.stayActiveRequirements,

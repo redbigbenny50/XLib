@@ -1,6 +1,8 @@
 package com.whatxe.xlib.ability;
 
 import com.whatxe.xlib.api.event.XLibAbilityActivationEvent;
+import com.whatxe.xlib.cue.XLibCueApi;
+import com.whatxe.xlib.cue.XLibRuntimeCue;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Locale;
@@ -24,6 +26,15 @@ public final class AbilityRuntime {
             AbilityDefinition definition,
             int activatedSlot
     ) {
+        return activate(player, currentData, definition, activatedSlot >= 0 ? AbilitySlotReference.primary(activatedSlot) : null);
+    }
+
+    public static AbilityUseResult activate(
+            ServerPlayer player,
+            AbilityData currentData,
+            AbilityDefinition definition,
+            @org.jetbrains.annotations.Nullable AbilitySlotReference activatedSlot
+    ) {
         ResourceLocation abilityId = definition.id();
         if (definition.toggleAbility() && currentData.isModeActive(abilityId)) {
             return endAbility(player, currentData, definition, AbilityEndReason.PLAYER_TOGGLED);
@@ -32,56 +43,54 @@ public final class AbilityRuntime {
         XLibAbilityActivationEvent.Pre preEvent = new XLibAbilityActivationEvent.Pre(player, definition, currentData);
         NeoForge.EVENT_BUS.post(preEvent);
         if (preEvent.isCanceled()) {
-            definition.playSounds(player, AbilitySoundTrigger.FAIL);
-            return finishActivation(player, currentData, definition, AbilityUseResult.fail(currentData, preEvent.failureFeedback()));
+            return failActivation(player, currentData, definition, preEvent.failureFeedback());
         }
 
         Optional<Component> requirementFailure = AbilityGrantApi.firstActivationFailure(player, currentData, definition);
         if (requirementFailure.isPresent()) {
-            definition.playSounds(player, AbilitySoundTrigger.FAIL);
-            return finishActivation(player, currentData, definition, AbilityUseResult.fail(currentData, requirementFailure.get()));
+            return failActivation(player, currentData, definition, requirementFailure.get());
         }
 
         Optional<Component> modeFailure = ModeApi.firstActivationFailure(player, definition, currentData);
         if (modeFailure.isPresent()) {
-            definition.playSounds(player, AbilitySoundTrigger.FAIL);
-            return finishActivation(player, currentData, definition, AbilityUseResult.fail(currentData, modeFailure.get()));
+            return failActivation(player, currentData, definition, modeFailure.get());
         }
 
         if (definition.usesCharges()) {
             int availableCharges = currentData.chargeCountFor(abilityId, definition.maxCharges());
             if (availableCharges <= 0) {
-                definition.playSounds(player, AbilitySoundTrigger.FAIL);
-                return finishActivation(player, currentData, definition, AbilityUseResult.fail(
+                return failActivation(
+                        player,
                         currentData,
+                        definition,
                         Component.translatable(
                                 "message.xlib.ability_cooldown",
                                 definition.displayName(),
                                 formatCooldown(currentData.chargeRechargeFor(abilityId))
                         )
-                ));
+                );
             }
         } else {
             int cooldownTicks = currentData.cooldownFor(abilityId);
             if (cooldownTicks > 0) {
-                definition.playSounds(player, AbilitySoundTrigger.FAIL);
-                return finishActivation(player, currentData, definition, AbilityUseResult.fail(
+                return failActivation(
+                        player,
                         currentData,
+                        definition,
                         Component.translatable("message.xlib.ability_cooldown", definition.displayName(), formatCooldown(cooldownTicks))
-                ));
+                );
             }
         }
 
         Optional<Component> resourceFailure = firstResourceFailure(currentData, definition);
         if (resourceFailure.isPresent()) {
-            definition.playSounds(player, AbilitySoundTrigger.FAIL);
-            return finishActivation(player, currentData, definition, AbilityUseResult.fail(currentData, resourceFailure.get()));
+            return failActivation(player, currentData, definition, resourceFailure.get());
         }
 
         AbilityUseResult actionResult = definition.activate(player, currentData);
         if (!actionResult.consumed()) {
             if (actionResult.feedback() != null) {
-                definition.playSounds(player, AbilitySoundTrigger.FAIL);
+                return failActivation(player, currentData, definition, actionResult.feedback());
             }
             return finishActivation(player, currentData, definition, actionResult);
         }
@@ -108,6 +117,8 @@ public final class AbilityRuntime {
         }
 
         updatedData = ComboChainApi.applyActivation(player, updatedData, abilityId, activatedSlot);
+        updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.abilityActivate(abilityId));
+        XLibCueApi.emit(player, updatedData, XLibRuntimeCue.activationStart(abilityId));
         definition.playSounds(player, AbilitySoundTrigger.ACTIVATE);
         AbilityUseResult result = new AbilityUseResult(updatedData, true, actionResult.feedback());
         ModeApi.postModeStarted(player, definition, currentData, updatedData);
@@ -135,7 +146,23 @@ public final class AbilityRuntime {
             updatedData = updatedData.withCooldown(definition.id(), definition.cooldownTicks());
         }
         updatedData = ComboChainApi.applyEnd(player, updatedData, definition.id());
+        updatedData = ReactiveTriggerApi.dispatch(player, updatedData, ReactiveRuntimeEvent.abilityEnd(definition.id(), reason));
 
+        if (definition.isChargeReleaseAbility()) {
+            XLibCueApi.emit(
+                    player,
+                    previousData,
+                    XLibRuntimeCue.release(
+                            definition.id(),
+                            reason,
+                            definition.resolvedChargeReleaseTicks(previousData, reason),
+                            definition.chargeReleaseMaxTicks()
+                    )
+            );
+        }
+        if (reason.usesInterruptSound()) {
+            XLibCueApi.emit(player, updatedData, XLibRuntimeCue.interrupt(definition.id(), reason));
+        }
         definition.playSounds(player, reason.usesInterruptSound() ? AbilitySoundTrigger.INTERRUPT : AbilitySoundTrigger.END);
         ModeApi.postModeEnded(player, definition, previousData, updatedData, reason);
         return new AbilityUseResult(updatedData, true, endResult.feedback());
@@ -143,6 +170,7 @@ public final class AbilityRuntime {
 
     public static AbilityData tick(ServerPlayer player, AbilityData currentData) {
         AbilityData updatedData = AbilityGrantApi.sanitize(AbilityApi.sanitizeData(currentData));
+        updatedData = AbilityDetectorApi.tick(updatedData);
         double cooldownTickRate = cooldownTickRateMultiplier(player, updatedData);
         updatedData = updatedData.tickCooldowns(cooldownTickRate);
         updatedData = ComboChainApi.tick(updatedData);
@@ -157,6 +185,16 @@ public final class AbilityRuntime {
             }
 
             AbilityDefinition ability = maybeAbility.get();
+            StateControlStatus controlStatus = StatePolicyApi.controlStatus(updatedData, ability);
+            if (controlStatus.suppressed()) {
+                AbilityUseResult endResult = endAbility(player, updatedData, ability, AbilityEndReason.SUPPRESSED);
+                updatedData = endResult.data();
+                player.displayClientMessage(
+                        Component.translatable("message.xlib.ability_suppressed", ability.displayName()),
+                        true
+                );
+                continue;
+            }
             Optional<Component> activeRequirementFailure = ability.firstFailedActiveRequirement(player, updatedData);
             if (activeRequirementFailure.isPresent()) {
                 AbilityUseResult endResult = endAbility(player, updatedData, ability, AbilityEndReason.REQUIREMENT_INVALIDATED);
@@ -173,6 +211,17 @@ public final class AbilityRuntime {
             updatedData = ability.tick(player, updatedData);
             if (!updatedData.isModeActive(activeAbilityId)) {
                 continue;
+            }
+            if (ability.isChargeReleaseAbility()) {
+                XLibCueApi.emit(
+                        player,
+                        updatedData,
+                        XLibRuntimeCue.chargeProgress(
+                                ability.id(),
+                                ability.resolvedChargeReleaseTicks(updatedData, null),
+                                ability.chargeReleaseMaxTicks()
+                        )
+                );
             }
 
             if (ability.durationTicks() > 0) {
@@ -319,7 +368,7 @@ public final class AbilityRuntime {
     }
 
     private static double cooldownTickRateMultiplier(ServerPlayer player, AbilityData data) {
-        double multiplier = ModeApi.cooldownTickRateMultiplier(data);
+        double multiplier = ModeApi.cooldownTickRateMultiplier(data) * StatePolicyApi.cooldownTickRateMultiplier(data);
         for (ResourceLocation passiveId : Set.copyOf(data.grantedPassives())) {
             PassiveDefinition passive = PassiveApi.findPassive(passiveId).orElse(null);
             if (passive == null || passive.firstFailedActiveRequirement(player, data).isPresent()) {
@@ -342,6 +391,18 @@ public final class AbilityRuntime {
     ) {
         NeoForge.EVENT_BUS.post(new XLibAbilityActivationEvent.Post(player, definition, currentData, result));
         return result;
+    }
+
+    private static AbilityUseResult failActivation(
+            ServerPlayer player,
+            AbilityData currentData,
+            AbilityDefinition definition,
+            Component feedback
+    ) {
+        AbilityData updatedData = ReactiveTriggerApi.dispatch(player, currentData, ReactiveRuntimeEvent.abilityFail(definition.id()));
+        definition.playSounds(player, AbilitySoundTrigger.FAIL);
+        XLibCueApi.emit(player, updatedData, XLibRuntimeCue.activationFail(definition.id()));
+        return finishActivation(player, currentData, definition, AbilityUseResult.fail(updatedData, feedback));
     }
 }
 

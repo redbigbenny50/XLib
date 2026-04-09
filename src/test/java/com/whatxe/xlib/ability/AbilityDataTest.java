@@ -12,6 +12,7 @@ class AbilityDataTest {
     private static final ResourceLocation GRANTED_ITEM_ID = id("fang");
     private static final ResourceLocation RECIPE_ID = id("fang_recipe");
     private static final ResourceLocation RESOURCE_ID = id("meter");
+    private static final ResourceLocation BUNDLE_ID = id("bundle/shared");
     private static final ResourceLocation SOURCE_A = id("source_a");
     private static final ResourceLocation SOURCE_B = id("source_b");
 
@@ -81,6 +82,19 @@ class AbilityDataTest {
         assertTrue(revoked.hasRecipePermission(RECIPE_ID));
         assertEquals(1, revoked.recipePermissionSourcesFor(RECIPE_ID).size());
         assertTrue(revoked.recipePermissionSourcesFor(RECIPE_ID).contains(SOURCE_B));
+    }
+
+    @Test
+    void grantBundleSourcesRemainIndependent() {
+        AbilityData data = AbilityData.empty()
+                .withGrantBundleSource(BUNDLE_ID, SOURCE_A, true)
+                .withGrantBundleSource(BUNDLE_ID, SOURCE_B, true);
+
+        AbilityData revoked = data.withGrantBundleSource(BUNDLE_ID, SOURCE_A, false);
+
+        assertTrue(revoked.hasGrantBundle(BUNDLE_ID));
+        assertEquals(1, revoked.grantBundleSourcesFor(BUNDLE_ID).size());
+        assertTrue(revoked.grantBundleSourcesFor(BUNDLE_ID).contains(SOURCE_B));
     }
 
     @Test
