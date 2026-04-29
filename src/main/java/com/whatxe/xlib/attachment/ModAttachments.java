@@ -8,6 +8,8 @@ import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.ProfileSelectionData;
 import com.whatxe.xlib.binding.EntityBindingData;
 import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.body.BodyTransitionApi;
+import com.whatxe.xlib.body.BodyTransitionData;
 import com.whatxe.xlib.form.VisualFormApi;
 import com.whatxe.xlib.form.VisualFormData;
 import com.whatxe.xlib.lifecycle.LifecycleStageApi;
@@ -62,6 +64,13 @@ public final class ModAttachments {
                     .serialize(CapabilityPolicyData.CODEC)
                     .copyOnDeath()
                     .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), CapabilityPolicyData.STREAM_CODEC)
+                    .build()
+    );
+    public static final Supplier<AttachmentType<BodyTransitionData>> PLAYER_BODY_TRANSITION = ATTACHMENT_TYPES.register(
+            "player_body_transition",
+            () -> AttachmentType.builder(BodyTransitionData::empty)
+                    .serialize(BodyTransitionData.CODEC)
+                    .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), BodyTransitionData.STREAM_CODEC)
                     .build()
     );
     public static final Supplier<AttachmentType<VisualFormData>> PLAYER_VISUAL_FORM = ATTACHMENT_TYPES.register(

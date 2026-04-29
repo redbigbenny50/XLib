@@ -3,6 +3,7 @@ package com.whatxe.xlib;
 import com.whatxe.xlib.ability.AbilityApi;
 import com.whatxe.xlib.binding.EntityBindingApi;
 import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.body.BodyTransitionApi;
 import com.whatxe.xlib.form.VisualFormApi;
 import com.whatxe.xlib.lifecycle.LifecycleStageApi;
 import com.whatxe.xlib.ability.AbilityDetectorApi;
@@ -50,6 +51,7 @@ public final class AbilityLibrary {
         EntityBindingApi.bootstrap();
         LifecycleStageApi.bootstrap();
         VisualFormApi.bootstrap();
+        BodyTransitionApi.bootstrap();
         CapabilityPolicyApi.bootstrap();
         AbilityDetectorApi.bootstrap();
         AbilityLoadoutFeatureApi.bootstrap();
