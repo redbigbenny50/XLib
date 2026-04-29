@@ -54,7 +54,11 @@ public final class AbilityApi {
     }
 
     public static Optional<AbilityDefinition> findAbility(ResourceLocation id) {
-        return Optional.ofNullable(ABILITIES.get(id));
+        AbilityDefinition ability = ABILITIES.get(id);
+        if (ability != null) {
+            return Optional.of(ability);
+        }
+        return DataDrivenAbilityApi.findDefinition(id).map(DataDrivenAbilityApi.LoadedAbilityDefinition::definition);
     }
 
     public static Collection<AbilityDefinition> allAbilities() {

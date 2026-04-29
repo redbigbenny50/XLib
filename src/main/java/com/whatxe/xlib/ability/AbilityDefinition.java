@@ -74,6 +74,9 @@ public final class AbilityDefinition {
     private final AbilityAction action;
     private final AbilityTicker ticker;
     private final AbilityEnder ender;
+    @Nullable private final Component customDisplayName;
+    @Nullable private final Component customDescription;
+    private final boolean hasCustomDescription;
 
     private AbilityDefinition(
             ResourceLocation id,
@@ -97,7 +100,10 @@ public final class AbilityDefinition {
             Map<AbilitySoundTrigger, List<AbilitySound>> sounds,
             AbilityAction action,
             AbilityTicker ticker,
-            AbilityEnder ender
+            AbilityEnder ender,
+            @Nullable Component customDisplayName,
+            @Nullable Component customDescription,
+            boolean hasCustomDescription
     ) {
         this.id = id;
         this.icon = icon;
@@ -121,6 +127,9 @@ public final class AbilityDefinition {
         this.action = action;
         this.ticker = ticker;
         this.ender = ender;
+        this.customDisplayName = customDisplayName;
+        this.customDescription = customDescription;
+        this.hasCustomDescription = hasCustomDescription;
     }
 
     public static Builder builder(ResourceLocation id, Item iconItem) {
@@ -239,11 +248,18 @@ public final class AbilityDefinition {
     }
 
     public Component displayName() {
-        return Component.translatable(this.translationKey());
+        return this.customDisplayName != null ? this.customDisplayName : Component.translatable(this.translationKey());
     }
 
     public Component description() {
-        return Component.translatable(this.translationKey() + ".desc");
+        if (this.customDescription != null) {
+            return this.customDescription;
+        }
+        return this.hasCustomDescription ? Component.empty() : Component.translatable(this.translationKey() + ".desc");
+    }
+
+    public boolean hasCustomDescription() {
+        return this.hasCustomDescription;
     }
 
     public String translationKey() {
@@ -343,6 +359,9 @@ public final class AbilityDefinition {
         private AbilityAction action;
         private AbilityTicker ticker = NOOP_TICKER;
         private AbilityEnder ender = NOOP_ENDER;
+        @Nullable private Component customDisplayName;
+        @Nullable private Component customDescription;
+        private boolean hasCustomDescription;
 
         private Builder(ResourceLocation id, AbilityIcon icon) {
             this.id = Objects.requireNonNull(id, "id");
@@ -507,6 +526,23 @@ public final class AbilityDefinition {
             return this;
         }
 
+        public Builder displayName(Component displayName) {
+            this.customDisplayName = Objects.requireNonNull(displayName, "displayName");
+            return this;
+        }
+
+        public Builder description(Component description) {
+            this.customDescription = Objects.requireNonNull(description, "description");
+            this.hasCustomDescription = true;
+            return this;
+        }
+
+        public Builder emptyDescription() {
+            this.customDescription = null;
+            this.hasCustomDescription = true;
+            return this;
+        }
+
         public AbilityDefinition build() {
             if (this.cooldownTicks < 0) {
                 throw new IllegalStateException("cooldownTicks cannot be negative");
@@ -555,7 +591,10 @@ public final class AbilityDefinition {
                     this.sounds,
                     this.action,
                     this.ticker,
-                    this.ender
+                    this.ender,
+                    this.customDisplayName,
+                    this.customDescription,
+                    this.hasCustomDescription
             );
         }
 

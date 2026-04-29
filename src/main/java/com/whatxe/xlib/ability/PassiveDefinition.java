@@ -100,6 +100,9 @@ public final class PassiveDefinition {
     private final PassiveEatAction onEat;
     private final PassiveBlockBreakAction onBlockBreak;
     private final PassiveArmorChangeAction onArmorChange;
+    @org.jetbrains.annotations.Nullable private final Component customDisplayName;
+    @org.jetbrains.annotations.Nullable private final Component customDescription;
+    private final boolean hasCustomDescription;
 
     private PassiveDefinition(
             ResourceLocation id,
@@ -121,7 +124,10 @@ public final class PassiveDefinition {
             PassiveAction onJump,
             PassiveEatAction onEat,
             PassiveBlockBreakAction onBlockBreak,
-            PassiveArmorChangeAction onArmorChange
+            PassiveArmorChangeAction onArmorChange,
+            @org.jetbrains.annotations.Nullable Component customDisplayName,
+            @org.jetbrains.annotations.Nullable Component customDescription,
+            boolean hasCustomDescription
     ) {
         this.id = id;
         this.icon = icon;
@@ -143,6 +149,9 @@ public final class PassiveDefinition {
         this.onEat = onEat;
         this.onBlockBreak = onBlockBreak;
         this.onArmorChange = onArmorChange;
+        this.customDisplayName = customDisplayName;
+        this.customDescription = customDescription;
+        this.hasCustomDescription = hasCustomDescription;
     }
 
     public static Builder builder(ResourceLocation id, Item iconItem) {
@@ -246,11 +255,18 @@ public final class PassiveDefinition {
     }
 
     public Component displayName() {
-        return Component.translatable(this.translationKey());
+        return this.customDisplayName != null ? this.customDisplayName : Component.translatable(this.translationKey());
     }
 
     public Component description() {
-        return Component.translatable(this.translationKey() + ".desc");
+        if (this.customDescription != null) {
+            return this.customDescription;
+        }
+        return this.hasCustomDescription ? Component.empty() : Component.translatable(this.translationKey() + ".desc");
+    }
+
+    public boolean hasCustomDescription() {
+        return this.hasCustomDescription;
     }
 
     public String translationKey() {
@@ -368,6 +384,9 @@ public final class PassiveDefinition {
         private PassiveEatAction onEat = NOOP_EAT_ACTION;
         private PassiveBlockBreakAction onBlockBreak = NOOP_BLOCK_BREAK_ACTION;
         private PassiveArmorChangeAction onArmorChange = NOOP_ARMOR_CHANGE_ACTION;
+        @org.jetbrains.annotations.Nullable private Component customDisplayName;
+        @org.jetbrains.annotations.Nullable private Component customDescription;
+        private boolean hasCustomDescription;
 
         private Builder(ResourceLocation id, AbilityIcon icon) {
             this.id = Objects.requireNonNull(id, "id");
@@ -481,6 +500,23 @@ public final class PassiveDefinition {
             return this;
         }
 
+        public Builder displayName(Component displayName) {
+            this.customDisplayName = Objects.requireNonNull(displayName, "displayName");
+            return this;
+        }
+
+        public Builder description(Component description) {
+            this.customDescription = Objects.requireNonNull(description, "description");
+            this.hasCustomDescription = true;
+            return this;
+        }
+
+        public Builder emptyDescription() {
+            this.customDescription = null;
+            this.hasCustomDescription = true;
+            return this;
+        }
+
         public PassiveDefinition build() {
             return new PassiveDefinition(
                     this.id,
@@ -502,7 +538,10 @@ public final class PassiveDefinition {
                     this.onJump,
                     this.onEat,
                     this.onBlockBreak,
-                    this.onArmorChange
+                    this.onArmorChange,
+                    this.customDisplayName,
+                    this.customDescription,
+                    this.hasCustomDescription
             );
         }
     }

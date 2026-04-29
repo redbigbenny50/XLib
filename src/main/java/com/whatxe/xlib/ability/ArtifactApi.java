@@ -193,6 +193,10 @@ public final class ArtifactApi {
             case MAIN_HAND -> matchesItemId(player.getMainHandItem(), artifact);
             case OFF_HAND -> matchesItemId(player.getOffhandItem(), artifact);
             case ARMOR -> anyMatching(player.getInventory().armor, artifact);
+            case HEAD -> matchesItemId(player.getInventory().armor.size() > 3 ? player.getInventory().armor.get(3) : ItemStack.EMPTY, artifact);
+            case CHEST -> matchesItemId(player.getInventory().armor.size() > 2 ? player.getInventory().armor.get(2) : ItemStack.EMPTY, artifact);
+            case LEGS -> matchesItemId(player.getInventory().armor.size() > 1 ? player.getInventory().armor.get(1) : ItemStack.EMPTY, artifact);
+            case FEET -> matchesItemId(player.getInventory().armor.isEmpty() ? ItemStack.EMPTY : player.getInventory().armor.getFirst(), artifact);
             case EQUIPPED -> matchesItemId(player.getMainHandItem(), artifact)
                     || matchesItemId(player.getOffhandItem(), artifact)
                     || anyMatching(player.getInventory().armor, artifact);

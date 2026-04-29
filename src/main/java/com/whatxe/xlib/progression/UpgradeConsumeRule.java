@@ -64,6 +64,22 @@ public final class UpgradeConsumeRule {
         return this.counterRewards;
     }
 
+    public Set<ResourceLocation> itemIds() {
+        return this.itemIds;
+    }
+
+    public Set<net.minecraft.tags.TagKey<Item>> itemTags() {
+        return this.itemTags;
+    }
+
+    public boolean foodOnly() {
+        return this.foodOnly;
+    }
+
+    public List<GrantCondition> conditions() {
+        return this.conditions;
+    }
+
     public boolean matches(Player player, AbilityData data, ItemStack stack) {
         if (stack.isEmpty()) {
             return false;

@@ -55,6 +55,18 @@ public final class UpgradeKillRule {
         return this.counterRewards;
     }
 
+    public Set<ResourceLocation> targetEntityIds() {
+        return this.targetEntityIds;
+    }
+
+    public Set<TagKey<EntityType<?>>> targetEntityTags() {
+        return this.targetEntityTags;
+    }
+
+    public Optional<ResourceLocation> requiredAbilityId() {
+        return Optional.ofNullable(this.requiredAbilityId);
+    }
+
     public boolean matches(ServerPlayer player, LivingEntity target, Optional<ResourceLocation> attributedAbilityId) {
         ResourceLocation entityTypeId = BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
         boolean entityMatches = this.targetEntityIds.isEmpty() && this.targetEntityTags.isEmpty();

@@ -245,7 +245,7 @@ public final class CombatBarOverlay {
         return aboveHotbarTopY;
     }
 
-    private static void renderDefaultResourceBar(
+    static void renderDefaultResourceBar(
             GuiGraphics guiGraphics,
             Minecraft minecraft,
             net.minecraft.world.entity.player.Player player,

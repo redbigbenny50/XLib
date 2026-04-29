@@ -6,5 +6,9 @@ public enum ArtifactPresenceMode {
     MAIN_HAND,
     OFF_HAND,
     ARMOR,
+    HEAD,
+    CHEST,
+    LEGS,
+    FEET,
     EQUIPPED
 }

@@ -3,6 +3,7 @@ package com.whatxe.xlib.ability;
 import com.whatxe.xlib.attachment.ModAttachments;
 import com.whatxe.xlib.combat.CombatMarkState;
 import com.whatxe.xlib.combat.CombatReactionApi;
+import com.whatxe.xlib.progression.UpgradeApi;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -10,16 +11,30 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 import java.util.function.Supplier;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ItemLike;
+import net.minecraft.world.level.block.Block;
 
 public final class AbilityRequirements {
     private AbilityRequirements() {}
+
+    public static AbilityRequirement always() {
+        return AbilityRequirement.of(() -> Component.empty(), (player, data) -> Optional.empty());
+    }
+
+    public static AbilityRequirement never() {
+        return AbilityRequirement.of(
+                () -> Component.translatable("message.xlib.requirement_never"),
+                (player, data) -> Optional.of(Component.translatable("message.xlib.requirement_never"))
+        );
+    }
 
     public static AbilityRequirement predicate(Component description, BiPredicate<Player, AbilityData> predicate) {
         return predicate(() -> description, predicate);
@@ -427,6 +442,358 @@ public final class AbilityRequirements {
         return predicate(
                 () -> Component.translatable("message.xlib.requirement_artifact_unlocked", displayReadableId(artifactId)),
                 (player, data) -> ArtifactApi.isUnlocked(data, artifactId)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Player state predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement inLava() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_in_lava"),
+                (player, data) -> player != null && player.isInLava());
+    }
+
+    public static AbilityRequirement swimming() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_swimming"),
+                (player, data) -> player != null && player.isSwimming());
+    }
+
+    public static AbilityRequirement onFire() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_on_fire"),
+                (player, data) -> player != null && player.isOnFire());
+    }
+
+    public static AbilityRequirement gliding() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_gliding"),
+                (player, data) -> player != null && player.isFallFlying());
+    }
+
+    public static AbilityRequirement underOpenSky() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_under_open_sky"),
+                (player, data) -> player != null && player.level().canSeeSky(player.blockPosition()));
+    }
+
+    public static AbilityRequirement creative() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_creative"),
+                (player, data) -> player != null && player.isCreative());
+    }
+
+    public static AbilityRequirement spectator() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_spectator"),
+                (player, data) -> player != null && player.isSpectator());
+    }
+
+    // -------------------------------------------------------------------------
+    // Block predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement standingOnBlock(ResourceLocation blockId) {
+        Objects.requireNonNull(blockId, "blockId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_standing_on_block", displayReadableId(blockId)),
+                (player, data) -> {
+                    if (player == null) return false;
+                    net.minecraft.world.level.block.state.BlockState state =
+                            player.level().getBlockState(player.blockPosition().below());
+                    ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+                    return blockId.equals(id);
+                }
+        );
+    }
+
+    public static AbilityRequirement standingOnBlockTag(ResourceLocation tagId) {
+        Objects.requireNonNull(tagId, "tagId");
+        TagKey<Block> tag = TagKey.create(Registries.BLOCK, tagId);
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_standing_on_block_tag", displayReadableId(tagId)),
+                (player, data) -> player != null
+                        && player.level().getBlockState(player.blockPosition().below()).is(tag)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Extended item holding predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement holdingAny(List<ItemLike> items) {
+        List<Item> resolved = items.stream().map(i -> Objects.requireNonNull(i, "item").asItem()).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_holding_any"),
+                (player, data) -> player != null && resolved.stream()
+                        .anyMatch(item -> player.getMainHandItem().is(item) || player.getOffhandItem().is(item))
+        );
+    }
+
+    public static AbilityRequirement holdingTag(ResourceLocation tagId) {
+        Objects.requireNonNull(tagId, "tagId");
+        TagKey<Item> tag = TagKey.create(Registries.ITEM, tagId);
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_holding_tag", displayReadableId(tagId)),
+                (player, data) -> player != null
+                        && (player.getMainHandItem().is(tag) || player.getOffhandItem().is(tag))
+        );
+    }
+
+    public static AbilityRequirement holdingAnyTags(List<ResourceLocation> tagIds) {
+        Objects.requireNonNull(tagIds, "tagIds");
+        List<TagKey<Item>> tags = tagIds.stream().map(id -> TagKey.create(Registries.ITEM, id)).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_holding_any_tag"),
+                (player, data) -> player != null && tags.stream()
+                        .anyMatch(tag -> player.getMainHandItem().is(tag) || player.getOffhandItem().is(tag))
+        );
+    }
+
+    public static AbilityRequirement holdingAllTags(List<ResourceLocation> tagIds) {
+        Objects.requireNonNull(tagIds, "tagIds");
+        List<TagKey<Item>> tags = tagIds.stream().map(id -> TagKey.create(Registries.ITEM, id)).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_holding_all_tags"),
+                (player, data) -> {
+                    if (player == null) return false;
+                    return tags.stream().allMatch(tag ->
+                            player.getMainHandItem().is(tag) || player.getOffhandItem().is(tag));
+                }
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Extended item wearing predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement wearingAny(List<ItemLike> items) {
+        List<Item> resolved = items.stream().map(i -> Objects.requireNonNull(i, "item").asItem()).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_wearing_any"),
+                (player, data) -> player != null
+                        && player.getInventory().armor.stream().anyMatch(stack -> resolved.stream().anyMatch(stack::is))
+        );
+    }
+
+    public static AbilityRequirement wearingAll(List<ItemLike> items) {
+        List<Item> resolved = items.stream().map(i -> Objects.requireNonNull(i, "item").asItem()).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_wearing_all"),
+                (player, data) -> {
+                    if (player == null) return false;
+                    return resolved.stream().allMatch(item ->
+                            player.getInventory().armor.stream().anyMatch(stack -> stack.is(item)));
+                }
+        );
+    }
+
+    public static AbilityRequirement wearingTag(ResourceLocation tagId) {
+        Objects.requireNonNull(tagId, "tagId");
+        TagKey<Item> tag = TagKey.create(Registries.ITEM, tagId);
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_wearing_tag", displayReadableId(tagId)),
+                (player, data) -> player != null
+                        && player.getInventory().armor.stream().anyMatch(stack -> stack.is(tag))
+        );
+    }
+
+    public static AbilityRequirement wearingAnyTags(List<ResourceLocation> tagIds) {
+        Objects.requireNonNull(tagIds, "tagIds");
+        List<TagKey<Item>> tags = tagIds.stream().map(id -> TagKey.create(Registries.ITEM, id)).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_wearing_any_tag"),
+                (player, data) -> player != null
+                        && tags.stream().anyMatch(tag ->
+                                player.getInventory().armor.stream().anyMatch(stack -> stack.is(tag)))
+        );
+    }
+
+    public static AbilityRequirement wearingAllTags(List<ResourceLocation> tagIds) {
+        Objects.requireNonNull(tagIds, "tagIds");
+        List<TagKey<Item>> tags = tagIds.stream().map(id -> TagKey.create(Registries.ITEM, id)).toList();
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_wearing_all_tags"),
+                (player, data) -> {
+                    if (player == null) return false;
+                    return tags.stream().allMatch(tag ->
+                            player.getInventory().armor.stream().anyMatch(stack -> stack.is(tag)));
+                }
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Biome tag predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement biomeTag(ResourceLocation tagId) {
+        Objects.requireNonNull(tagId, "tagId");
+        net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> tag =
+                TagKey.create(Registries.BIOME, tagId);
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_biome_tag", displayReadableId(tagId)),
+                (player, data) -> player != null && player.level().getBiome(player.blockPosition()).is(tag)
+        );
+    }
+
+    public static AbilityRequirement notBiomeTag(ResourceLocation tagId) {
+        Objects.requireNonNull(tagId, "tagId");
+        net.minecraft.tags.TagKey<net.minecraft.world.level.biome.Biome> tag =
+                TagKey.create(Registries.BIOME, tagId);
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_not_biome_tag", displayReadableId(tagId)),
+                (player, data) -> player != null && !player.level().getBiome(player.blockPosition()).is(tag)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Weather predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement raining() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_raining"),
+                (player, data) -> player != null && player.level().isRaining());
+    }
+
+    public static AbilityRequirement thundering() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_thundering"),
+                (player, data) -> player != null && player.level().isThundering());
+    }
+
+    public static AbilityRequirement clearWeather() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_clear_weather"),
+                (player, data) -> player != null && !player.level().isRaining() && !player.level().isThundering());
+    }
+
+    // -------------------------------------------------------------------------
+    // Time predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement daytime() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_daytime"),
+                (player, data) -> player != null && player.level().isDay());
+    }
+
+    public static AbilityRequirement nighttime() {
+        return predicate(() -> Component.translatable("message.xlib.requirement_nighttime"),
+                (player, data) -> player != null && player.level().isNight());
+    }
+
+    public static AbilityRequirement timeBetween(long start, long end) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_time_between", start, end),
+                (player, data) -> {
+                    if (player == null) return false;
+                    long time = player.level().getDayTime() % 24000L;
+                    if (start <= end) {
+                        return time >= start && time <= end;
+                    }
+                    return time >= start || time <= end;
+                }
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Health / food / xp predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement healthAtLeast(double amount) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_health_at_least", amount),
+                (player, data) -> player != null && player.getHealth() >= amount
+        );
+    }
+
+    public static AbilityRequirement healthAtMost(double amount) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_health_at_most", amount),
+                (player, data) -> player != null && player.getHealth() <= amount
+        );
+    }
+
+    public static AbilityRequirement foodAtLeast(int amount) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_food_at_least", amount),
+                (player, data) -> player != null && player.getFoodData().getFoodLevel() >= amount
+        );
+    }
+
+    public static AbilityRequirement foodAtMost(int amount) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_food_at_most", amount),
+                (player, data) -> player != null && player.getFoodData().getFoodLevel() <= amount
+        );
+    }
+
+    public static AbilityRequirement xpLevelAtLeast(int level) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_xp_level_at_least", level),
+                (player, data) -> player != null && player.experienceLevel >= level
+        );
+    }
+
+    public static AbilityRequirement xpLevelAtMost(int level) {
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_xp_level_at_most", level),
+                (player, data) -> player != null && player.experienceLevel <= level
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Scoreboard predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement scoreAtLeast(String objective, int value) {
+        Objects.requireNonNull(objective, "objective");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_score_at_least", objective, value),
+                (player, data) -> com.whatxe.xlib.ability.AbilityScoreboardApi.readScore(player, objective)
+                        .stream().anyMatch(score -> score >= value)
+        );
+    }
+
+    public static AbilityRequirement scoreAtMost(String objective, int value) {
+        Objects.requireNonNull(objective, "objective");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_score_at_most", objective, value),
+                (player, data) -> com.whatxe.xlib.ability.AbilityScoreboardApi.readScore(player, objective)
+                        .stream().anyMatch(score -> score <= value)
+        );
+    }
+
+    public static AbilityRequirement scoreBetween(String objective, int min, int max) {
+        Objects.requireNonNull(objective, "objective");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_score_between", objective, min, max),
+                (player, data) -> com.whatxe.xlib.ability.AbilityScoreboardApi.readScore(player, objective)
+                        .stream().anyMatch(score -> score >= min && score <= max)
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Progression counter predicates
+    // -------------------------------------------------------------------------
+
+    public static AbilityRequirement counterAtLeast(ResourceLocation counterId, int amount) {
+        Objects.requireNonNull(counterId, "counterId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_counter_at_least", displayReadableId(counterId), amount),
+                (player, data) -> player != null && UpgradeApi.counter(player, counterId) >= amount
+        );
+    }
+
+    public static AbilityRequirement counterAtMost(ResourceLocation counterId, int amount) {
+        Objects.requireNonNull(counterId, "counterId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_counter_at_most", displayReadableId(counterId), amount),
+                (player, data) -> player != null && UpgradeApi.counter(player, counterId) <= amount
+        );
+    }
+
+    public static AbilityRequirement counterBetween(ResourceLocation counterId, int min, int max) {
+        Objects.requireNonNull(counterId, "counterId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_counter_between", displayReadableId(counterId), min, max),
+                (player, data) -> {
+                    if (player == null) return false;
+                    int count = UpgradeApi.counter(player, counterId);
+                    return count >= min && count <= max;
+                }
         );
     }
 

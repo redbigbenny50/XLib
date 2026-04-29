@@ -2,6 +2,8 @@ package com.whatxe.xlib.cue;
 
 import com.whatxe.xlib.ability.AbilityEndReason;
 import java.util.Objects;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -13,6 +15,32 @@ public record XLibRuntimeCue(
         int progress,
         int maxProgress
 ) {
+    private static final XLibRuntimeCueType[] CUE_TYPES = XLibRuntimeCueType.values();
+    private static final AbilityEndReason[] END_REASONS = AbilityEndReason.values();
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, XLibRuntimeCue> STREAM_CODEC =
+            StreamCodec.of(
+                    (buf, cue) -> {
+                        buf.writeVarInt(cue.type.ordinal());
+                        buf.writeBoolean(cue.abilityId != null);
+                        if (cue.abilityId != null) ResourceLocation.STREAM_CODEC.encode(buf, cue.abilityId);
+                        buf.writeBoolean(cue.stateId != null);
+                        if (cue.stateId != null) ResourceLocation.STREAM_CODEC.encode(buf, cue.stateId);
+                        buf.writeBoolean(cue.endReason != null);
+                        if (cue.endReason != null) buf.writeVarInt(cue.endReason.ordinal());
+                        buf.writeVarInt(cue.progress);
+                        buf.writeVarInt(cue.maxProgress);
+                    },
+                    buf -> new XLibRuntimeCue(
+                            CUE_TYPES[buf.readVarInt()],
+                            buf.readBoolean() ? ResourceLocation.STREAM_CODEC.decode(buf) : null,
+                            buf.readBoolean() ? ResourceLocation.STREAM_CODEC.decode(buf) : null,
+                            buf.readBoolean() ? END_REASONS[buf.readVarInt()] : null,
+                            buf.readVarInt(),
+                            buf.readVarInt()
+                    )
+            );
+
     public XLibRuntimeCue {
         type = Objects.requireNonNull(type, "type");
         if (progress < 0) {
