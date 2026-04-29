@@ -1,6 +1,7 @@
 package com.whatxe.xlib;
 
 import com.whatxe.xlib.ability.AbilityApi;
+import com.whatxe.xlib.capability.CapabilityPolicyApi;
 import com.whatxe.xlib.ability.AbilityDetectorApi;
 import com.whatxe.xlib.ability.ArtifactApi;
 import com.whatxe.xlib.ability.AbilityLoadoutFeatureApi;
@@ -43,6 +44,7 @@ public final class AbilityLibrary {
 
     public static void bootstrap(IEventBus modEventBus) {
         AbilityApi.bootstrap();
+        CapabilityPolicyApi.bootstrap();
         AbilityDetectorApi.bootstrap();
         AbilityLoadoutFeatureApi.bootstrap();
         AbilityControlProfileApi.bootstrap();

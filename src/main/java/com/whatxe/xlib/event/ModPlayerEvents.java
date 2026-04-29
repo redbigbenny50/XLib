@@ -8,6 +8,7 @@ import com.whatxe.xlib.ability.PassiveRuntime;
 import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.RecipePermissionApi;
 import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.capability.CapabilityPolicyApi;
 import com.whatxe.xlib.progression.UpgradeApi;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -28,6 +29,7 @@ public final class ModPlayerEvents {
             ModAttachments.set(player, player.getData(ModAttachments.PLAYER_ABILITY_DATA));
             ModAttachments.setProgression(player, player.getData(ModAttachments.PLAYER_UPGRADE_PROGRESS));
             ModAttachments.setProfiles(player, player.getData(ModAttachments.PLAYER_PROFILE_SELECTIONS));
+            ModAttachments.setCapabilityPolicy(player, player.getData(ModAttachments.PLAYER_CAPABILITY_POLICY));
             RecipePermissionApi.installCraftingGuards(player);
             GrantedItemRuntime.installStorageGuards(player);
             GrantedItemRuntime.reconcile(player);
@@ -50,6 +52,7 @@ public final class ModPlayerEvents {
         GrantedItemRuntime.restoreMissingUndroppableItems(player);
         ModAttachments.set(player, player.getData(ModAttachments.PLAYER_ABILITY_DATA));
         ModAttachments.setProfiles(player, player.getData(ModAttachments.PLAYER_PROFILE_SELECTIONS));
+        ModAttachments.setCapabilityPolicy(player, player.getData(ModAttachments.PLAYER_CAPABILITY_POLICY));
         ProfileApi.rebuild(player);
         ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.RESPAWN, "respawn");
     }

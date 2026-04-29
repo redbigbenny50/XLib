@@ -22,6 +22,7 @@ public final class AbilityGrantCommands {
                 .then(RecipeCommandTree.build())
                 .then(ProgressionCommandTree.build())
                 .then(ProfileCommandTree.build())
+                .then(CapabilityPolicyCommandTree.build())
                 .then(DebugCommandTree.build()));
     }
 }

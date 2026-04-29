@@ -6,6 +6,8 @@ import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityGrantApi;
 import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.ProfileSelectionData;
+import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.capability.CapabilityPolicyData;
 import com.whatxe.xlib.combat.CombatMarkApi;
 import com.whatxe.xlib.combat.CombatMarkData;
 import com.whatxe.xlib.combat.CombatReactionData;
@@ -49,6 +51,14 @@ public final class ModAttachments {
                     .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), ProfileSelectionData.STREAM_CODEC)
                     .build()
     );
+    public static final Supplier<AttachmentType<CapabilityPolicyData>> PLAYER_CAPABILITY_POLICY = ATTACHMENT_TYPES.register(
+            "player_capability_policy",
+            () -> AttachmentType.builder(CapabilityPolicyData::empty)
+                    .serialize(CapabilityPolicyData.CODEC)
+                    .copyOnDeath()
+                    .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), CapabilityPolicyData.STREAM_CODEC)
+                    .build()
+    );
     public static final Supplier<AttachmentType<CombatMarkData>> LIVING_COMBAT_MARKS = ATTACHMENT_TYPES.register(
             "living_combat_marks",
             () -> AttachmentType.builder(CombatMarkData::empty)
@@ -61,6 +71,14 @@ public final class ModAttachments {
     );
 
     private ModAttachments() {}
+
+    public static CapabilityPolicyData getCapabilityPolicy(Player player) {
+        return player.getData(PLAYER_CAPABILITY_POLICY);
+    }
+
+    public static void setCapabilityPolicy(Player player, CapabilityPolicyData data) {
+        player.setData(PLAYER_CAPABILITY_POLICY, CapabilityPolicyApi.sanitize(data));
+    }
 
     public static AbilityData get(Player player) {
         return player.getData(PLAYER_ABILITY_DATA);
