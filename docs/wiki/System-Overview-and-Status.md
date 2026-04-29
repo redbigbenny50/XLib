@@ -4,9 +4,9 @@ This page is the quickest "what already exists today?" summary for the whole lib
 
 ## Current Architecture
 
-- XLib bootstraps registry-style APIs for abilities, passives, modes, combos, context grants, combat marks, combat reaction, granted items, recipes, progression, attachments, payloads, and commands.
-- Player state lives in synced attachments: `AbilityData` for combat, loadout, grant, and runtime state, `ProfileSelectionData` for persistent profile/onboarding state, `UpgradeProgressData` for progression, `CombatMarkData` for living-entity marks, and `CombatReactionData` for recent-hit state.
-- The server is authoritative for activation, cooldown and charge ticking, grant syncing, item cleanup, recipe permission sync, and progression reward projection.
+- XLib bootstraps registry-style APIs for abilities, passives, modes, combos, context grants, combat marks, combat reaction, granted items, recipes, progression, capability policies, entity bindings, lifecycle stages, visual forms, body transitions, attachments, payloads, and commands.
+- Player state lives in synced attachments: `AbilityData` for combat, loadout, grant, and runtime state, `ProfileSelectionData` for persistent profile/onboarding state, `UpgradeProgressData` for progression, `CombatMarkData` for living-entity marks, `CombatReactionData` for recent-hit state, `CapabilityPolicyData` for active capability restriction policies, `LifecycleStageData` for the current lifecycle stage, `VisualFormData` for active visual forms, and `BodyTransitionData` for an active body transition. Living entities also carry `EntityBindingData` for named entity bindings.
+- The server is authoritative for activation, cooldown and charge ticking, grant syncing, item cleanup, recipe permission sync, progression reward projection, capability policy enforcement, lifecycle stage ticking and transitions, and body transition management.
 - The client mainly renders synced state and sends intent payloads for ability activation, loadout assignment, and progression unlocks.
 
 ## What Already Ships
@@ -40,15 +40,21 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Built-in client UI now also includes shared menu-session-state and context-aware factory handoff, so custom ability/progression screens can preserve selected slot, loadout target, selected track/node, and layout mode across surface switches.
 - Built-in client UI now also includes `AbilityContainerLayoutApi`, `AbilitySlotWidgetMetadata`, and `AbilitySlotLayoutPlanner`, so the default HUD and ability menu can render strip/grid/radial/categorized container layouts with authored anchors, grouped headers, page tabs, slot labels, role hints, input hints, and soft locks without forcing full UI replacement.
 - Compatibility/migration helpers now include `AbilitySlotMigrationApi`, payload validation for container ids and slot references, `XLibMenuOpenEvent`, and profile claim/reset/onboarding lifecycle events for safer addon upgrades plus clearer extension hooks.
-- Built-in `/xlib` admin and debug commands plus both JUnit coverage and runtime GameTests.
+- Source-tracked capability policies for restricting player interaction, inventory, movement, menu, crafting, equipment, and held-item access per source. Resolved lazily into a unified `ResolvedCapabilityPolicyState` for fast per-tick enforcement. Commands, debug export, and `AbilityRequirements.capabilityPolicyActive(...)` all surface policy state.
+- Named entity bindings between two living entities with typed semantics (`LINK`, `ATTACHMENT`, `OCCUPANCY`, `CONTROL`, `TETHER`, `CONTAINMENT`), stacking policy (single/replace/stack), symmetry options, timed or instant duration, break conditions (primary/secondary death, disconnect, range exceeded), runtime UUID cache for O(1) lookup, and a payload-carrying `CompoundTag` slot. Commands list and clear bindings per-entity.
+- Player lifecycle stages with authored auto-transitions driven by timers, death, respawn, advancements, or manual requests, projected state flags, grant bundles, identities, capability policies, and visual forms while a stage is active, plus pending-transition state, status tracking, and sanitization on login.
+- Source-tracked player visual forms with multi-form stacking, primary-form resolution, optional model/cue/HUD adapter backend registration, and sanitization on login. Commands apply, revoke, and get the active visual form set.
+- Authored body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides, origin-body preservation/destroy/shell policy, control policy, and reversible semantics. Commands trigger return, force-clear, and get active transition state.
+- Built-in `/xlib` admin and debug commands plus both JUnit coverage and runtime GameTests. Debug export sections now also include capability policies, entity bindings, lifecycle stage, visual forms, and body transition state.
 
 ## Runtime Flow
 
-1. `AbilityLibrary.bootstrap(...)` registers the framework registries, attachments, payloads, commands, reload listeners, and IDE fixtures.
-2. Player login and container hooks install recipe and granted-item guards, sanitize attachments, evaluate required profile onboarding, and resync progression and recipe state.
-3. Per-player server ticks run ability runtime, passive runtime, granted-item runtime, and recipe-result enforcement.
-4. Dynamic grant sync pulls from items, contextual providers, active modes, and unlocked progression sources into the same source-tracked ownership model.
-5. Client menus and the combat HUD read the synced attachments, while activation, assignment, and unlock requests travel back to the server through payloads.
+1. `AbilityLibrary.bootstrap(...)` registers the framework registries, attachments, payloads, commands, reload listeners, and IDE fixtures. Includes registries for capability policies, entity bindings, lifecycle stages, visual forms, and body transitions.
+2. Player login sanitizes all attachments (ability data, lifecycle stage, visual form, body transition), evaluates required profile onboarding, installs recipe and granted-item guards, syncs progression and recipe state, and rebuilds profile projections.
+3. Per-player server ticks run ability runtime, passive runtime, granted-item runtime, recipe-result enforcement, and lifecycle stage ticking (timer auto-transitions and elapsed-tick tracking).
+4. Entity ticks also run entity binding duration countdowns and break-condition evaluation.
+5. Dynamic grant sync pulls from items, contextual providers, active modes, and unlocked progression sources into the same source-tracked ownership model.
+6. Client menus and the combat HUD read the synced attachments, while activation, assignment, and unlock requests travel back to the server through payloads.
 
 ## Foundation Status
 
@@ -75,6 +81,11 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Completed foundation: `GrantBundleApi`, `IdentityApi`, `DelegatedGrantApi`, and `GrantOwnershipApi` now cover transferable bundle packages, inherited identity bundles, revocable delegated powers, and structured ownership/access inspection.
 - Completed foundation: `ArtifactDefinition`, `ArtifactApi`, artifact-aware requirements, and menu visibility helpers now cover authored equipment/access-policy content on top of the older item-grant and unlock layers.
 - Completed foundation: `SupportPackageApi`, `EntityRelationshipApi`, and `ControlledEntityApi` now cover ally-targeted bundle projection, persistent relationship ownership, and simple summon or minion control helpers.
+- Completed foundation: `CapabilityPolicyApi`, `CapabilityPolicyData`, and `CapabilityPolicyDefinition` now cover source-tracked player capability restriction policies for interaction, inventory, movement, menu, crafting, equipment, and held-item access, with lazy resolution into a unified `ResolvedCapabilityPolicyState` and enforcement hooks in recipe/granted-item guards and container-open events.
+- Completed foundation: `EntityBindingApi`, `EntityBindingDefinition`, and `EntityBindingState` now cover named living-entity bindings with typed semantics, stacking control, symmetry, timed duration, break conditions, a payload slot, and a runtime UUID cache for fast lookups. Break-condition hooks fire on entity death and player disconnect.
+- Completed foundation: `LifecycleStageApi`, `LifecycleStageDefinition`, and `LifecycleStageState` now cover player lifecycle stages with authored timer/trigger/death/respawn/manual transitions, projected state flags, grant bundles, identities, capability policies, and visual forms while a stage is active, plus pending-transition status, elapsed tracking, sanitization on login, and respawn handling.
+- Completed foundation: `VisualFormApi`, `VisualFormDefinition`, and `VisualFormData` now cover source-tracked player visual forms with multi-form stacking, primary-form resolution, optional model/cue/HUD adapter backend identifiers, and sanitization on login.
+- Completed foundation: `BodyTransitionApi`, `BodyTransitionDefinition`, and `BodyTransitionState` now cover authored body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides, origin-body preservation/destroy/shell policy, reversible semantics, and sanitization on login.
 - Completed foundation: the optional progression layer now supports choice groups, explicit node or track locks, identity rewards, and identity-gated follow-up paths for stronger branch commitment and archetype progression.
 - Strong groundwork already exists for modes, source ownership, item-driven access, profile/onboarding state, recipe gating, progression, and UI.
 - The missing work is now mostly higher-level authoring UX and optional tooling rather than slot/container/profile foundations.

@@ -24,6 +24,11 @@ XLib ships reusable APIs and runtime systems for:
 - recipe permission gates and selector-based recipe restrictions
 - optional progression / upgrade trees
 - persistent profile groups, required-choice onboarding, and reset-aware selection state
+- source-tracked capability policies for restricting player interaction, inventory, movement, menu, crafting, and equipment access
+- named entity bindings between two living entities with typed semantics, stacking control, timed duration, and break conditions
+- lifecycle stages for players with authored timer/trigger transitions and projected state flags, bundles, identities, visual forms, and capability policies
+- visual form definitions for model/cue/HUD adapter registration with primary-form resolution and source-tracked application
+- body transition definitions for possession, projection, hatching, emergence, and return semantics with temporary capability and form overrides
 - built-in or replaceable client UI for combat, progression, onboarding, and custom HUD layouts
 - admin/debug commands
 - optional JEI / EMI recipe-viewer integration
@@ -46,8 +51,18 @@ XLib ships reusable APIs and runtime systems for:
   Exact and selector-based recipe locks, shared metadata lookups, advancement-backed unlocks, viewer sync, and runtime restrict/unrestrict support.
 - `UpgradeApi`
   Optional progression tracks/nodes with shared metadata, point types, consume/kill rules, and reward projection into XLib's grant systems.
+- `CapabilityPolicyApi`
+  Source-tracked player capability restriction policies controlling interaction, inventory, movement, menu, crafting, equipment, and held-item access. Resolved lazily into a shared `ResolvedCapabilityPolicyState`.
+- `EntityBindingApi`
+  Named, typed bindings between two living entities with stacking control (single/replace/stack), symmetry options, timed duration, break conditions (death, disconnect, range), and a runtime UUID cache for O(1) lookup.
+- `LifecycleStageApi`
+  Player lifecycle stages with authored timer/trigger/manual/death/respawn transitions, projected state flags, grant bundles, identities, capability policies, and visual forms during stage residence.
+- `VisualFormApi`
+  Source-tracked player visual form registry for model/cue/HUD adapter backends, multi-form stacking with primary-form resolution, and sanitization on login.
+- `BodyTransitionApi`
+  Authored possession, projection, hatching, emergence, and return transitions with temporary capability policy and visual form overrides, origin-body preservation policy, and reversible/irreversible semantics.
 - `AbilityRequirements` / `GrantConditions` / `ContextGrantConditions`
-  Shared authoring helpers for composable requirements and cross-surface reuse in abilities, contextual grants, item-driven grants, and consume rules.
+  Shared authoring helpers for composable requirements and cross-surface reuse in abilities, contextual grants, item-driven grants, and consume rules. Includes capability-policy, lifecycle-stage, visual-form, entity-binding, and body-transition condition helpers.
 
 ## Included Client Features
 
@@ -76,6 +91,12 @@ XLib includes `/xlib` admin/debug surfaces for:
 - items
 - recipes
 - progression
+- profiles
+- capability policies
+- entity bindings
+- lifecycle stages
+- visual forms
+- body transitions
 - debug / state / export / diff / counters
 
 ## Documentation

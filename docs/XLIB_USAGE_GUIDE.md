@@ -18,7 +18,8 @@ XLib's repository license is `All Rights Reserved`. This documentation describes
 4. [Modes and Combos](wiki/Modes-and-Combos.md)
 5. [Grants, Items, and Recipes](wiki/Grants-Items-and-Recipes.md)
 6. [Progression](wiki/Progression.md)
-7. [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md)
+7. [Entity and Form Systems](wiki/Entity-and-Form-Systems.md)
+8. [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md)
 
 ## What XLib Covers
 
@@ -46,6 +47,11 @@ XLib is a library mod for:
 - exact/fractional resources, exact and selector-based recipe restrictions, and JEI/EMI integration
 - an optional progression module for point, counter, track, and node systems
 - branching progression specialization with choice groups, node or track locks, and identity-gated follow-up paths
+- source-tracked capability policies for restricting player interaction, inventory, movement, menu, crafting, equipment, and held-item access
+- named entity bindings between living entities with typed semantics, stacking policies, timed duration, and break conditions
+- lifecycle stages for players with authored timer/trigger transitions and projected state flags, bundles, identities, forms, and policies
+- visual form definitions for model/cue/HUD adapter backends with primary-form resolution and source tracking
+- body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides
 
 ## Quick Mental Model
 

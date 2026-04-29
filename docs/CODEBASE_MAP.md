@@ -57,6 +57,11 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - `player_upgrade_progress` via `UpgradeProgressData`
   - `living_combat_marks` via `CombatMarkData`
   - `living_combat_reaction` via `CombatReactionData`
+  - `player_capability_policy` via `CapabilityPolicyData` (synced)
+  - `living_entity_bindings` via `EntityBindingData` (on living entities, not synced to client)
+  - `player_lifecycle_stage` via `LifecycleStageData` (synced, copied on death)
+  - `player_visual_form` via `VisualFormData` (synced)
+  - `player_body_transition` via `BodyTransitionData` (synced)
   Also contains the embedded-connection sync workaround used for GameTests.
 
 ## Ability / Combat Core
@@ -189,6 +194,97 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityCombatTracker.java`
   Recent ability-hit attribution helper for systems that need to know which ability caused a later kill. Also kicks off hit-confirm combo triggers, reactive runtime events, and hit-confirm runtime cues when addon code records a landed ability hit.
+
+## Capability Policies
+
+- `src/main/java/com/whatxe/xlib/capability/CapabilityPolicyDefinition.java`
+  Authored policy definition with axes for interaction, inventory, movement, menu, crafting, equipment, held-item, container, and pickup/drop access. Built with a fluent builder.
+
+- `src/main/java/com/whatxe/xlib/capability/CapabilityPolicyData.java`
+  Player attachment data. Stores a `Map<ResourceLocation, Set<ResourceLocation>>` of policy id to source ids. Immutable record with `withPolicySource`, `clearPolicySource`, and `retainRegistered` mutations.
+
+- `src/main/java/com/whatxe/xlib/capability/CapabilityPolicyApi.java`
+  Registry, apply/revoke helpers, resolved-state computation, `allows(player, CapabilityCheck)` enforcement entry point, sanitize, and getData/setData.
+
+- `src/main/java/com/whatxe/xlib/capability/ResolvedCapabilityPolicyState.java`
+  Merged union of all active policy axes for fast per-tick enforcement.
+
+- `src/main/java/com/whatxe/xlib/capability/CraftingPolicy.java`, `ContainerPolicy.java`, `InventoryPolicy.java`, `MovementPolicy.java`, `HeldItemPolicy.java`, `InteractionPolicy.java`, `PickupDropPolicy.java`, `EquipmentPolicy.java`, `MenuPolicy.java`
+  Individual policy-axis record types.
+
+## Entity Bindings
+
+- `src/main/java/com/whatxe/xlib/binding/EntityBindingDefinition.java`
+  Authored binding definition: id, kind, stacking policy, symmetry, break conditions, completion mode, tick policy, optional duration, and payload type hints.
+
+- `src/main/java/com/whatxe/xlib/binding/EntityBindingState.java`
+  Runtime binding state record with instance UUID, binding id, primary/secondary entity UUIDs, source id, game time, optional remaining ticks, status, CompoundTag payload, and revision counter.
+
+- `src/main/java/com/whatxe/xlib/binding/EntityBindingData.java`
+  Living-entity attachment. Stores `Map<UUID, EntityBindingState>` for primary bindings and `Set<UUID>` for secondary refs. Immutable with `withBinding`, `withoutBinding`, `withSecondaryRef`, `withoutSecondaryRef`, `updateBinding`.
+
+- `src/main/java/com/whatxe/xlib/binding/EntityBindingApi.java`
+  Registry, `bind()`, `unbind()`, `bindings(entity)`, `bindings(entity, kind)`, `between(a, b)`, `find(instanceId)`, `breakByCondition()`, tick, onEntityLoad/Unload. Maintains a `ConcurrentHashMap<UUID, EntityBindingState>` runtime cache. Holds a static `MinecraftServer` reference for entity UUID resolution without requiring entity handles.
+
+- `src/main/java/com/whatxe/xlib/binding/EntityBindingHooks.java`
+  `@EventBusSubscriber` for server start/stop, entity join/leave (cache), entity tick, living death, and player logout.
+
+- `src/main/java/com/whatxe/xlib/binding/EntityBindingKind.java`, `EntityBindingStatus.java`, `EntityBindingEndReason.java`, `EntityBindingStackingPolicy.java`, `EntityBindingSymmetry.java`, `EntityBindingBreakCondition.java`, `EntityBindingCompletionMode.java`, `EntityBindingTickPolicy.java`
+  Supporting enums.
+
+## Lifecycle Stages
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageDefinition.java`
+  Authored stage definition: id, optional duration, auto-transitions, manual transition target set, projected state flags, grant bundles, identities, capability policies, and visual form.
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageState.java`
+  Player attachment state record: current stage id, source id, entered game time, elapsed ticks, optional pending transition, and status.
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageData.java`
+  Player attachment wrapper `(Optional<LifecycleStageState>)` with `withStage`, `withoutStage`, `updateStage`.
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageApi.java`
+  Registry, `setStage()`, `clearStage()`, `requestTransition()`, `completePendingTransition()`, `tick()`, `onDeath()`, `onRespawn()`, state projections (flags/bundles/identities/policies/form), `isInStage()`, `sanitize()`, getData/setData.
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageHooks.java`
+  `@EventBusSubscriber` for player tick, living death, and player clone (respawn).
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageTransition.java`, `PendingLifecycleTransition.java`
+  Transition record and pending-state record.
+
+- `src/main/java/com/whatxe/xlib/lifecycle/LifecycleStageTrigger.java`, `LifecycleStageStatus.java`
+  Supporting enums.
+
+## Visual Forms
+
+- `src/main/java/com/whatxe/xlib/form/VisualFormDefinition.java`
+  Authored form definition: id, kind, optional model/cue/HUD/sound profile ids, first-person policy, and render scale.
+
+- `src/main/java/com/whatxe/xlib/form/VisualFormData.java`
+  Player attachment data. Stores `Map<ResourceLocation, ResourceLocation>` of form id to source id. Immutable with `withForm`, `withoutForm`, `clearSource`, `retainRegistered`, `activeForms()`, `primaryForm()`.
+
+- `src/main/java/com/whatxe/xlib/form/VisualFormApi.java`
+  Registry, `apply()`, `revoke()`, `revokeSource()`, `clearAll()`, `active()`, `hasForm()`, `activeForms()`, `sanitize()`, getData/setData.
+
+- `src/main/java/com/whatxe/xlib/form/VisualFormKind.java`, `FirstPersonPolicy.java`
+  Supporting enums.
+
+## Body Transitions
+
+- `src/main/java/com/whatxe/xlib/body/BodyTransitionDefinition.java`
+  Authored transition definition: id, kind, origin body policy, control policy, optional temporary capability policy id, optional temporary visual form id, and reversible flag.
+
+- `src/main/java/com/whatxe/xlib/body/BodyTransitionState.java`
+  Player attachment state record: controller/current/origin body entity UUIDs, transition id, source id, started game time, and status.
+
+- `src/main/java/com/whatxe/xlib/body/BodyTransitionData.java`
+  Player attachment wrapper `(Optional<BodyTransitionState>)` with `withTransition`, `withoutTransition`.
+
+- `src/main/java/com/whatxe/xlib/body/BodyTransitionApi.java`
+  Registry, `begin()`, `returnToOrigin()`, `clear()`, `active()`, `isTransitioning()`, `isControlling()`, `sanitize()`, getData/setData.
+
+- `src/main/java/com/whatxe/xlib/body/BodyTransitionKind.java`, `BodyTransitionStatus.java`, `OriginBodyPolicy.java`, `BodyControlPolicy.java`
+  Supporting enums.
 
 ## Combat Helpers
 
@@ -625,6 +721,11 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 - `src/main/java/com/whatxe/xlib/command/ProfileCommandTree.java`
 - `src/main/java/com/whatxe/xlib/command/RecipeCommandTree.java`
 - `src/main/java/com/whatxe/xlib/command/ProgressionCommandTree.java`
+- `src/main/java/com/whatxe/xlib/command/CapabilityPolicyCommandTree.java`
+- `src/main/java/com/whatxe/xlib/command/EntityBindingCommandTree.java`
+- `src/main/java/com/whatxe/xlib/command/LifecycleStageCommandTree.java`
+- `src/main/java/com/whatxe/xlib/command/VisualFormCommandTree.java`
+- `src/main/java/com/whatxe/xlib/command/BodyTransitionCommandTree.java`
 - `src/main/java/com/whatxe/xlib/command/DebugCommandTree.java`
   Per-domain `/xlib` command tree registration:
   - ability grant/revoke/restrict/list/inspect, with `grant` acting as a practical admin force-grant through the `xlib:command` source and `revoke` auto-forwarding into matching progression nodes when the ability is currently backed by unlocked node reward sources
@@ -633,7 +734,12 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - profile catalog/groups/claim/reset/reopen/list/pending/resync, including pending-group management and safe rebuild/reset helpers
   - recipe restrict/unrestrict, grant/revoke/clear/list/inspect/source, with runtime metadata changes forcing a live resync of online players and open crafting menus
   - progression unlock/revoke/track revoke/clear/list/inspect
-  - debug dump/state/export/diff/source/counters, including progression points/counters/unlocked nodes, focused passive/mode/profile/detector/artifact/identity/grant-bundle/state summaries, structured detector/artifact/identity/bundle/source-descriptor debug-export sections, managed profile/progression-source sections, source-group ownership views, and per-player runtime state counters
+  - capability policy apply/revoke/list for a target player
+  - entity bindings list/unbind/clear for a target entity
+  - lifecycle stage set/clear/get/transition for a target player
+  - visual form apply/revoke/clear/get for a target player
+  - body transition return/clear/get for a target player
+  - debug dump/state/export/diff/source/counters, including progression points/counters/unlocked nodes, focused passive/mode/profile/detector/artifact/identity/grant-bundle/state summaries, structured detector/artifact/identity/bundle/source-descriptor debug-export sections, managed profile/progression-source sections, source-group ownership views, and per-player runtime state counters; export now also includes `capability_policies`, `entity_bindings`, `lifecycle_stage`, `visual_forms`, and `body_transition` sections
 
 - `src/main/java/com/whatxe/xlib/command/XLibDebugCounters.java`
   Lightweight per-player counter snapshot for active modes, detector windows, artifacts, identities, selected/pending profile groups, active grant bundles, active state policies, active state flags, charge/cooldown/resource entries, source-group counts, and other tick-heavy state totals.
@@ -690,6 +796,21 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 - `src/test/java/com/whatxe/xlib/command/XLibCommandSupportTest.java`
   JUnit coverage for passive, active-mode, profile, detector, artifact, identity, grant-bundle, support-package, state-policy, state-flag, and ownership-descriptor formatting used by the command/debug discoverability surfaces.
+
+- `src/test/java/com/whatxe/xlib/capability/CapabilityPolicyApiTest.java`
+  JUnit coverage for policy registration, duplicate-registration guard, unregister, active-policy lookup, source-tracking, sanitize (drops unknown), and sanitize (preserves known).
+
+- `src/test/java/com/whatxe/xlib/binding/EntityBindingApiTest.java`
+  JUnit coverage for binding definition registration, duplicate-registration guard, unregister, builder defaults, duration auto-enables tick policy, break-condition declaration, data immutability, binding-state mutations, and find-returns-empty for unknown instance IDs.
+
+- `src/test/java/com/whatxe/xlib/lifecycle/LifecycleStageApiTest.java`
+  JUnit coverage for stage registration, duplicate-registration guard, unregister, builder defaults, auto-transitions, manual-transition targets, data immutability, and sanitize (drops unknown / preserves known).
+
+- `src/test/java/com/whatxe/xlib/form/VisualFormApiTest.java`
+  JUnit coverage for form registration, duplicate-registration guard, unregister, builder defaults, data immutability, multi-form stacking, revoke-checks-source-ownership, and sanitize.
+
+- `src/test/java/com/whatxe/xlib/body/BodyTransitionApiTest.java`
+  JUnit coverage for transition registration, duplicate-registration guard, unregister, builder defaults, builder with full options, data empty/immutability, sanitize (drops unknown / preserves known), state-with-status immutability, and all-definitions returns registered set.
 
 - `src/test/java/com/whatxe/xlib/ability/GrantedItemApiTest.java`
   JUnit coverage for granted-item metadata storage and registry lookups.
