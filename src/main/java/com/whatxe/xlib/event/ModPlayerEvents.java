@@ -8,7 +8,10 @@ import com.whatxe.xlib.ability.PassiveRuntime;
 import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.RecipePermissionApi;
 import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.body.BodyTransitionApi;
 import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.form.VisualFormApi;
+import com.whatxe.xlib.lifecycle.LifecycleStageApi;
 import com.whatxe.xlib.progression.UpgradeApi;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -30,6 +33,9 @@ public final class ModPlayerEvents {
             ModAttachments.setProgression(player, player.getData(ModAttachments.PLAYER_UPGRADE_PROGRESS));
             ModAttachments.setProfiles(player, player.getData(ModAttachments.PLAYER_PROFILE_SELECTIONS));
             ModAttachments.setCapabilityPolicy(player, player.getData(ModAttachments.PLAYER_CAPABILITY_POLICY));
+            player.setData(ModAttachments.PLAYER_LIFECYCLE_STAGE, LifecycleStageApi.sanitize(player.getData(ModAttachments.PLAYER_LIFECYCLE_STAGE)));
+            player.setData(ModAttachments.PLAYER_VISUAL_FORM, VisualFormApi.sanitize(player.getData(ModAttachments.PLAYER_VISUAL_FORM)));
+            player.setData(ModAttachments.PLAYER_BODY_TRANSITION, BodyTransitionApi.sanitize(player.getData(ModAttachments.PLAYER_BODY_TRANSITION)));
             RecipePermissionApi.installCraftingGuards(player);
             GrantedItemRuntime.installStorageGuards(player);
             GrantedItemRuntime.reconcile(player);
@@ -53,6 +59,8 @@ public final class ModPlayerEvents {
         ModAttachments.set(player, player.getData(ModAttachments.PLAYER_ABILITY_DATA));
         ModAttachments.setProfiles(player, player.getData(ModAttachments.PLAYER_PROFILE_SELECTIONS));
         ModAttachments.setCapabilityPolicy(player, player.getData(ModAttachments.PLAYER_CAPABILITY_POLICY));
+        player.setData(ModAttachments.PLAYER_LIFECYCLE_STAGE, LifecycleStageApi.sanitize(player.getData(ModAttachments.PLAYER_LIFECYCLE_STAGE)));
+        player.setData(ModAttachments.PLAYER_VISUAL_FORM, VisualFormApi.sanitize(player.getData(ModAttachments.PLAYER_VISUAL_FORM)));
         ProfileApi.rebuild(player);
         ProfileApi.evaluateOnboarding(player, com.whatxe.xlib.ability.ProfileOnboardingTrigger.RESPAWN, "respawn");
     }

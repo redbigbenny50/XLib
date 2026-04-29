@@ -48,6 +48,16 @@ import com.whatxe.xlib.ability.StateFlagApi;
 import com.whatxe.xlib.ability.StatePolicyApi;
 import com.whatxe.xlib.ability.StatePolicyDefinition;
 import com.whatxe.xlib.attachment.ModAttachments;
+import com.whatxe.xlib.binding.EntityBindingApi;
+import com.whatxe.xlib.binding.EntityBindingState;
+import com.whatxe.xlib.body.BodyTransitionApi;
+import com.whatxe.xlib.body.BodyTransitionState;
+import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.capability.CapabilityPolicyData;
+import com.whatxe.xlib.form.VisualFormApi;
+import com.whatxe.xlib.form.VisualFormData;
+import com.whatxe.xlib.lifecycle.LifecycleStageApi;
+import com.whatxe.xlib.lifecycle.LifecycleStageState;
 import com.whatxe.xlib.network.ModPayloads;
 import com.whatxe.xlib.progression.UpgradeApi;
 import com.whatxe.xlib.progression.UpgradeProgressData;
@@ -768,6 +778,11 @@ final class XLibCommandSupport {
         JsonElement rawProfileData = ProfileSelectionData.CODEC.encodeStart(JsonOps.INSTANCE, profileData)
                 .getOrThrow(IllegalStateException::new);
         root.add("profile_selection_data", rawProfileData);
+        root.add("capability_policies", capabilityPoliciesToJson(target));
+        root.add("entity_bindings", entityBindingsToJson(target));
+        root.add("lifecycle_stage", lifecycleStageToJson(target));
+        root.add("visual_forms", visualFormsToJson(target));
+        root.add("body_transition", bodyTransitionToJson(target));
         return root;
     }
 
@@ -970,6 +985,98 @@ final class XLibCommandSupport {
             array.add(object);
         }
         return array;
+    }
+
+    private static JsonObject capabilityPoliciesToJson(ServerPlayer player) {
+        JsonObject root = new JsonObject();
+        CapabilityPolicyData data = CapabilityPolicyApi.getData(player);
+        JsonArray policiesArray = new JsonArray();
+        data.activePolicies().stream()
+                .sorted(Comparator.comparing(ResourceLocation::toString))
+                .forEach(policyId -> {
+                    JsonObject obj = new JsonObject();
+                    obj.addProperty("id", policyId.toString());
+                    obj.add("sources", idsToJson(data.sourcesFor(policyId)));
+                    policiesArray.add(obj);
+                });
+        root.add("active_policies", policiesArray);
+        return root;
+    }
+
+    private static JsonArray entityBindingsToJson(ServerPlayer player) {
+        JsonArray array = new JsonArray();
+        for (EntityBindingState state : EntityBindingApi.bindings(player)) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("instance_id", state.bindingInstanceId().toString());
+            obj.addProperty("binding_id", state.bindingId().toString());
+            obj.addProperty("primary_entity_id", state.primaryEntityId().toString());
+            obj.addProperty("secondary_entity_id", state.secondaryEntityId().toString());
+            obj.addProperty("source_id", state.sourceId().toString());
+            obj.addProperty("started_game_time", state.startedGameTime());
+            state.remainingTicks().ifPresent(ticks -> obj.addProperty("remaining_ticks", ticks));
+            obj.addProperty("status", state.status().name().toLowerCase(Locale.ROOT));
+            obj.addProperty("revision", state.revision());
+            array.add(obj);
+        }
+        return array;
+    }
+
+    private static JsonObject lifecycleStageToJson(ServerPlayer player) {
+        JsonObject root = new JsonObject();
+        Optional<LifecycleStageState> stateOpt = LifecycleStageApi.state(player);
+        root.addProperty("has_stage", stateOpt.isPresent());
+        stateOpt.ifPresent(state -> {
+            root.addProperty("current_stage_id", state.currentStageId().toString());
+            root.addProperty("source_id", state.sourceId().toString());
+            root.addProperty("entered_game_time", state.enteredGameTime());
+            root.addProperty("elapsed_ticks", state.elapsedTicks());
+            root.addProperty("status", state.status().name().toLowerCase(Locale.ROOT));
+            state.pendingTransition().ifPresent(pending -> {
+                JsonObject pendingObj = new JsonObject();
+                pendingObj.addProperty("target_stage_id", pending.targetStageId().toString());
+                pendingObj.addProperty("trigger", pending.trigger().name().toLowerCase(Locale.ROOT));
+                pendingObj.addProperty("requested_game_time", pending.requestedGameTime());
+                root.add("pending_transition", pendingObj);
+            });
+        });
+        return root;
+    }
+
+    private static JsonObject visualFormsToJson(ServerPlayer player) {
+        JsonObject root = new JsonObject();
+        VisualFormData data = VisualFormApi.getData(player);
+        JsonArray formsArray = new JsonArray();
+        data.formSources().entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(ResourceLocation::toString)))
+                .forEach(entry -> {
+                    JsonObject obj = new JsonObject();
+                    obj.addProperty("form_id", entry.getKey().toString());
+                    obj.addProperty("source_id", entry.getValue().toString());
+                    VisualFormApi.findDefinition(entry.getKey()).ifPresent(def ->
+                            obj.addProperty("kind", def.kind().name().toLowerCase(Locale.ROOT)));
+                    formsArray.add(obj);
+                });
+        root.add("active_forms", formsArray);
+        VisualFormApi.active(player).ifPresent(def ->
+                root.addProperty("primary_form_id", def.id().toString()));
+        return root;
+    }
+
+    private static JsonObject bodyTransitionToJson(ServerPlayer player) {
+        JsonObject root = new JsonObject();
+        Optional<BodyTransitionState> stateOpt = BodyTransitionApi.active(player);
+        root.addProperty("is_transitioning", stateOpt.isPresent());
+        stateOpt.ifPresent(state -> {
+            root.addProperty("transition_id", state.transitionId().toString());
+            root.addProperty("source_id", state.sourceId().toString());
+            root.addProperty("controller_entity_id", state.controllerEntityId().toString());
+            root.addProperty("current_body_entity_id", state.currentBodyEntityId().toString());
+            state.originBodyEntityId().ifPresent(id ->
+                    root.addProperty("origin_body_entity_id", id.toString()));
+            root.addProperty("started_game_time", state.startedGameTime());
+            root.addProperty("status", state.status().name().toLowerCase(Locale.ROOT));
+        });
+        return root;
     }
 
     private static JsonObject artifactStateToJson(Player player, AbilityData data, ArtifactDefinition artifact) {

@@ -356,6 +356,56 @@ public final class AbilityRequirements {
         );
     }
 
+    public static AbilityRequirement capabilityPolicyActive(ResourceLocation policyId) {
+        Objects.requireNonNull(policyId, "policyId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_capability_policy", displayReadableId(policyId)),
+                (player, data) -> player != null && com.whatxe.xlib.capability.CapabilityPolicyApi.hasActivePolicy(player, policyId)
+        );
+    }
+
+    public static AbilityRequirement lifecycleStageActive(ResourceLocation stageId) {
+        Objects.requireNonNull(stageId, "stageId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_lifecycle_stage", displayReadableId(stageId)),
+                (player, data) -> player != null && com.whatxe.xlib.lifecycle.LifecycleStageApi.isInStage(player, stageId)
+        );
+    }
+
+    public static AbilityRequirement visualFormActive(ResourceLocation formId) {
+        Objects.requireNonNull(formId, "formId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_visual_form", displayReadableId(formId)),
+                (player, data) -> player != null && com.whatxe.xlib.form.VisualFormApi.hasForm(player, formId)
+        );
+    }
+
+    public static AbilityRequirement bindingActive(ResourceLocation bindingId) {
+        Objects.requireNonNull(bindingId, "bindingId");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_binding", displayReadableId(bindingId)),
+                (player, data) -> player instanceof net.minecraft.world.entity.LivingEntity le
+                        && com.whatxe.xlib.binding.EntityBindingApi.bindings(le).stream()
+                                .anyMatch(s -> s.bindingId().equals(bindingId))
+        );
+    }
+
+    public static AbilityRequirement bindingKindActive(com.whatxe.xlib.binding.EntityBindingKind kind) {
+        Objects.requireNonNull(kind, "kind");
+        return predicate(
+                () -> Component.translatable("message.xlib.requirement_binding_kind", kind.name()),
+                (player, data) -> player instanceof net.minecraft.world.entity.LivingEntity le
+                        && !com.whatxe.xlib.binding.EntityBindingApi.bindings(le, kind).isEmpty()
+        );
+    }
+
+    public static AbilityRequirement bodyTransitionActive() {
+        return predicate(
+                Component.translatable("message.xlib.requirement_body_transition"),
+                (player, data) -> player != null && com.whatxe.xlib.body.BodyTransitionApi.isTransitioning(player)
+        );
+    }
+
     public static AbilityRequirement identityActive(ResourceLocation identityId) {
         Objects.requireNonNull(identityId, "identityId");
         return predicate(
