@@ -24,6 +24,8 @@ public final class AbilityGrantCommands {
                 .then(ProfileCommandTree.build())
                 .then(CapabilityPolicyCommandTree.build())
                 .then(EntityBindingCommandTree.build())
+                .then(LifecycleStageCommandTree.build())
+                .then(VisualFormCommandTree.build())
                 .then(DebugCommandTree.build()));
     }
 }

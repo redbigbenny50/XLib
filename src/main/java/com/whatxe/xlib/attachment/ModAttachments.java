@@ -8,6 +8,10 @@ import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.ProfileSelectionData;
 import com.whatxe.xlib.binding.EntityBindingData;
 import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.form.VisualFormApi;
+import com.whatxe.xlib.form.VisualFormData;
+import com.whatxe.xlib.lifecycle.LifecycleStageApi;
+import com.whatxe.xlib.lifecycle.LifecycleStageData;
 import com.whatxe.xlib.capability.CapabilityPolicyData;
 import com.whatxe.xlib.combat.CombatMarkApi;
 import com.whatxe.xlib.combat.CombatMarkData;
@@ -58,6 +62,21 @@ public final class ModAttachments {
                     .serialize(CapabilityPolicyData.CODEC)
                     .copyOnDeath()
                     .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), CapabilityPolicyData.STREAM_CODEC)
+                    .build()
+    );
+    public static final Supplier<AttachmentType<VisualFormData>> PLAYER_VISUAL_FORM = ATTACHMENT_TYPES.register(
+            "player_visual_form",
+            () -> AttachmentType.builder(VisualFormData::empty)
+                    .serialize(VisualFormData.CODEC)
+                    .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), VisualFormData.STREAM_CODEC)
+                    .build()
+    );
+    public static final Supplier<AttachmentType<LifecycleStageData>> PLAYER_LIFECYCLE_STAGE = ATTACHMENT_TYPES.register(
+            "player_lifecycle_stage",
+            () -> AttachmentType.builder(LifecycleStageData::empty)
+                    .serialize(LifecycleStageData.CODEC)
+                    .copyOnDeath()
+                    .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), LifecycleStageData.STREAM_CODEC)
                     .build()
     );
     public static final Supplier<AttachmentType<EntityBindingData>> LIVING_ENTITY_BINDINGS = ATTACHMENT_TYPES.register(
