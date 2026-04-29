@@ -6,6 +6,7 @@ import com.whatxe.xlib.ability.AbilityData;
 import com.whatxe.xlib.ability.AbilityGrantApi;
 import com.whatxe.xlib.ability.ProfileApi;
 import com.whatxe.xlib.ability.ProfileSelectionData;
+import com.whatxe.xlib.binding.EntityBindingData;
 import com.whatxe.xlib.capability.CapabilityPolicyApi;
 import com.whatxe.xlib.capability.CapabilityPolicyData;
 import com.whatxe.xlib.combat.CombatMarkApi;
@@ -57,6 +58,12 @@ public final class ModAttachments {
                     .serialize(CapabilityPolicyData.CODEC)
                     .copyOnDeath()
                     .sync((holder, to) -> holder == to && !hasEmbeddedConnection(to), CapabilityPolicyData.STREAM_CODEC)
+                    .build()
+    );
+    public static final Supplier<AttachmentType<EntityBindingData>> LIVING_ENTITY_BINDINGS = ATTACHMENT_TYPES.register(
+            "living_entity_bindings",
+            () -> AttachmentType.builder(EntityBindingData::empty)
+                    .serialize(EntityBindingData.CODEC)
                     .build()
     );
     public static final Supplier<AttachmentType<CombatMarkData>> LIVING_COMBAT_MARKS = ATTACHMENT_TYPES.register(
