@@ -4,6 +4,8 @@ This page covers the five entity-relationship and embodiment systems XLib ships:
 
 All five follow the same registry-style pattern used elsewhere in XLib: `bootstrap()`, `register()`, `unregister()` (test use only), `findDefinition()`, and data stored in synced or entity-scoped NeoForge attachments.
 
+XLib's cue and form plumbing is backend-agnostic. The optional BLib bridge under `com.whatxe.xlib.integration.blib` can route XLib runtime cues into BLib `AzCommand` playback when BLib is present, but BLib is not required for the five systems on this page to function.
+
 ---
 
 ## Capability Policies (`com.whatxe.xlib.capability`)

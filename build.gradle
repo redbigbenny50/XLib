@@ -20,6 +20,10 @@ repositories {
     // Add here additional repositories if required by some of the dependencies below.
     maven { url = 'https://maven.blamejared.com' }
     maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+    }
 }
 
 base {
@@ -105,9 +109,9 @@ dependencies {
     compileOnly "dev.emi:emi-neoforge:${emi_version}:api"
     localRuntime "dev.emi:emi-neoforge:${emi_version}"
 
-    compileOnly files("runs/client/mods/blib-neoforge-1.21.1-0.2.2.jar")
-    testCompileOnly files("runs/client/mods/blib-neoforge-1.21.1-0.2.2.jar")
-    testRuntimeOnly files("runs/client/mods/blib-neoforge-1.21.1-0.2.2.jar")
+    compileOnly "maven.modrinth:blib:jy3aS9Xf"
+    testCompileOnly "maven.modrinth:blib:jy3aS9Xf"
+    testRuntimeOnly "maven.modrinth:blib:jy3aS9Xf"
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar

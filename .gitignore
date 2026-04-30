@@ -28,3 +28,9 @@ repo
 
 # local maintainer logs
 CODEX_ACTIVITY_LOG.md
+
+# local AI assistant state
+.claude/
+
+# local maintainer-only docs
+hidden-docs/

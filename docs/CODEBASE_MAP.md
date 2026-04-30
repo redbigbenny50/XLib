@@ -48,6 +48,14 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 - `src/main/java/com/whatxe/xlib/XLibRegistryGuard.java`
   Shared guard that prevents late registry mutation outside IDE/dev contexts.
 
+## Build And Optional Integrations
+
+- `build.gradle`
+  Declares NeoForge as the required implementation dependency and keeps optional integrations on non-transitive surfaces:
+  - `JEI` and `EMI` are optional viewer integrations.
+  - `BLib` is resolved from Modrinth Maven as `compileOnly` plus test-only so CI and fresh clones do not depend on a machine-local jar path.
+  - `src/main/resources/META-INF/neoforge.mods.toml` does not declare BLib as a required runtime mod dependency.
+
 ## Player Attachments
 
 - `src/main/java/com/whatxe/xlib/attachment/ModAttachments.java`
@@ -845,6 +853,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 - `src/test/java/com/whatxe/xlib/cue/*.java`
   JUnit coverage for cue factories, charge-release progress resolution, sink dispatch, runtime cue event emission, adapter routing, and surface-profile dispatch behavior.
+
+- `src/test/java/com/whatxe/xlib/integration/blib/*.java`
+  JUnit coverage for the optional BLib cue bridge and `AzCommand` dispatch planning. These tests validate the bridge integration layer, not XLib's core runtime.
 
 - `src/test/java/com/whatxe/xlib/network/ProtocolVersionTest.java`
   JUnit coverage for play-protocol series/revision compatibility rules.

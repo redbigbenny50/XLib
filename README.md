@@ -32,6 +32,7 @@ XLib ships reusable APIs and runtime systems for:
 - built-in or replaceable client UI for combat, progression, onboarding, and custom HUD layouts
 - admin/debug commands
 - optional JEI / EMI recipe-viewer integration
+- optional BLib cue-bridge integration for routing XLib runtime cues into BLib `AzCommand` playback
 
 ## Major Systems
 
@@ -117,6 +118,12 @@ XLib includes `/xlib` admin/debug surfaces for:
 - `.\gradlew.bat compileJava` compiles the mod sources.
 - `.\gradlew.bat test` runs the JUnit suite.
 - `.\gradlew.bat runGameTestServer` launches the NeoForge GameTest server and exits after registered tests complete.
+
+## Optional Integrations
+
+- `JEI` and `EMI` are optional runtime integrations for recipe-viewer support.
+- `BLib` is an optional integration used only by the cue bridge under `com.whatxe.xlib.integration.blib`.
+- Running XLib without BLib disables the BLib `AzCommand` cue bridge only. Core abilities, grants, progression, entity systems, menus, and generic cue routing still work without it.
 
 ## Coordinates
 

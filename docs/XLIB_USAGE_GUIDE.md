@@ -85,6 +85,7 @@ XLib is already a broad framework mod, not just a starter slice.
 - The optional progression module now also supports branch commitment with choice groups, explicit node or track locks, identity rewards, and identity-gated follow-up nodes, while the built-in progression menu surfaces that branch metadata directly in the details panel.
 - The core runtime now emits neutral `XLibRuntimeCue` objects plus `XLibRuntimeCueEvent`, so addon-side animation, VFX, or sound bridges can observe combat flow without XLib hard-depending on one presentation backend.
 - `XLibCueAdapterApi` and `XLibCueRouteProfileApi` now let addons register optional backend adapters and route cues separately to player-body animation, model animation, or effect-playback capability surfaces.
+- `com.whatxe.xlib.integration.blib` is one optional bridge on top of that cue system. If BLib is absent, only the BLib `AzCommand` bridge is unavailable; the neutral cue APIs and route profiles still function.
 - `/xlib` admin and debug commands, JUnit coverage, and runtime GameTests are already part of the repo.
 
 Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you want the full whole-mod map before diving into one subsystem page.
