@@ -39,7 +39,12 @@ public final class LifecycleStageApi {
     }
 
     public static Optional<LifecycleStageDefinition> findDefinition(ResourceLocation id) {
-        return Optional.ofNullable(DEFINITIONS.get(id));
+        LifecycleStageDefinition definition = DEFINITIONS.get(id);
+        if (definition != null) {
+            return Optional.of(definition);
+        }
+        return DataDrivenLifecycleStageApi.findDefinition(id)
+                .map(DataDrivenLifecycleStageApi.LoadedLifecycleStageDefinition::definition);
     }
 
     public static Collection<LifecycleStageDefinition> all() {

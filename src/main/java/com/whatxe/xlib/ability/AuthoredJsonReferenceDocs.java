@@ -239,6 +239,71 @@ public final class AuthoredJsonReferenceDocs {
                     )
             ),
             new ReferenceSurface(
+                    "lifecycle_stages",
+                    "Lifecycle Stage Definitions",
+                    "`data/<namespace>/xlib/lifecycle_stages/*.json`",
+                    List.of(
+                            "Stages project grant bundles, identities, state flags, capability policies, and a visual form while active.",
+                            "`trigger` in auto_transitions accepts: timer, manual, death, respawn, advancement, condition.",
+                            "Duration-less stages stay active until a manual transition or death trigger removes them."
+                    ),
+                    List.of(
+                            field("id", "resource_location", false, "file id", "If omitted, the datapack file id becomes the runtime id."),
+                            field("duration_ticks", "int", false, "-", "Optional automatic stage duration in ticks."),
+                            field("auto_transitions", "array<object>", false, "-", "Transitions applied automatically. Each entry: `target` (resource_location), `trigger` (enum), `preserve_elapsed` (boolean, default false)."),
+                            field("manual_transition_targets", "array<resource_location>", false, "-", "Stage ids that manual transitions are allowed to target."),
+                            field("project_state_flags", "array<resource_location>", false, "-", "State flag ids projected while in this stage."),
+                            field("project_grant_bundles", "array<resource_location>", false, "-", "Grant bundle ids projected while in this stage."),
+                            field("project_identities", "array<resource_location>", false, "-", "Identity ids projected while in this stage."),
+                            field("project_capability_policies", "array<resource_location>", false, "-", "Capability policy ids projected while in this stage."),
+                            field("project_visual_form", "resource_location", false, "-", "Optional visual form id projected while in this stage.")
+                    )
+            ),
+            new ReferenceSurface(
+                    "capability_policies",
+                    "Capability Policy Definitions",
+                    "`data/<namespace>/xlib/capability_policies/*.json`",
+                    List.of(
+                            "All policy dimension objects are optional; omitted dimensions default to fully permissive.",
+                            "`merge_mode` controls how overlapping active policies are combined: `restrictive` (AND semantics, default) or `permissive` (OR semantics).",
+                            "Tag arrays in `held_items` and `crafting` are additive across all active restrictive policies."
+                    ),
+                    List.of(
+                            field("id", "resource_location", false, "file id", "If omitted, the datapack file id becomes the runtime id."),
+                            field("merge_mode", "enum", false, "restrictive", "How multiple active policies combine: `restrictive` or `permissive`."),
+                            field("priority", "int", false, "0", "Evaluation priority; higher values take precedence."),
+                            field("inventory", "object", false, "all true", "Inventory dimension: can_open_inventory, can_move_items, can_use_hotbar, can_use_offhand."),
+                            field("equipment", "object", false, "all true", "Equipment dimension: can_equip_armor, can_unequip_armor, can_equip_held_items."),
+                            field("held_items", "object", false, "all true", "Held-item dimension: can_use_main_hand, can_use_offhand, can_block_with_shields, can_use_tools, can_use_weapons, can_place_blocks, can_break_blocks, allowed_item_tags, blocked_item_tags."),
+                            field("crafting", "object", false, "all true", "Crafting dimension: can_use_player_crafting, can_use_crafting_table, allowed_station_tags, blocked_station_tags."),
+                            field("containers", "object", false, "all true", "Container dimension: can_open_containers, can_open_chests, can_open_furnaces, can_open_shulker_boxes."),
+                            field("pickup_drop", "object", false, "all true", "Pickup-drop dimension: can_pickup_items, can_drop_items."),
+                            field("interaction", "object", false, "all true", "Interaction dimension: can_interact_with_blocks, can_interact_with_entities, can_attack_players, can_attack_mobs."),
+                            field("menus", "object", false, "all true", "Menu dimension: can_open_ability_menu, can_open_progression_menu, can_open_inventory_screen."),
+                            field("movement", "object", false, "all true", "Movement dimension: can_sprint, can_sneak, can_jump, can_fly.")
+                    )
+            ),
+            new ReferenceSurface(
+                    "visual_forms",
+                    "Visual Form Definitions",
+                    "`data/<namespace>/xlib/visual_forms/*.json`",
+                    List.of(
+                            "`kind` is required and determines the base rendering category.",
+                            "Profile reference fields link to separately registered model, cue-route, hud, and sound profiles.",
+                            "`first_person_policy` controls first-person arm rendering: default, hidden, or custom."
+                    ),
+                    List.of(
+                            field("id", "resource_location", false, "file id", "If omitted, the datapack file id becomes the runtime id."),
+                            field("kind", "enum", true, "-", "Required visual form kind: humanoid, creature, vehicle, construct, spirit, or abstract."),
+                            field("model_profile", "resource_location", false, "-", "Optional model profile id."),
+                            field("cue_route_profile", "resource_location", false, "-", "Optional cue-route profile id."),
+                            field("hud_profile", "resource_location", false, "-", "Optional HUD profile id."),
+                            field("sound_profile", "resource_location", false, "-", "Optional sound profile id."),
+                            field("first_person_policy", "enum", false, "default", "First-person arm policy: default, hidden, or custom."),
+                            field("render_scale", "float", false, "1.0", "Render scale multiplier; must be positive.")
+                    )
+            ),
+            new ReferenceSurface(
                     "modes",
                     "Mode Definitions",
                     "`data/<namespace>/xlib/modes/*.json`",

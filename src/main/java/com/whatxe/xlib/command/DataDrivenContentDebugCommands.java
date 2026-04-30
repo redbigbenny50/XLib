@@ -27,6 +27,12 @@ import com.whatxe.xlib.ability.DataDrivenPassiveApi;
 import com.whatxe.xlib.ability.DataDrivenProfileApi;
 import com.whatxe.xlib.ability.DataDrivenProfileGroupApi;
 import com.whatxe.xlib.ability.DataDrivenSupportPackageApi;
+import com.whatxe.xlib.capability.CapabilityPolicyDefinition;
+import com.whatxe.xlib.capability.DataDrivenCapabilityPolicyApi;
+import com.whatxe.xlib.form.DataDrivenVisualFormApi;
+import com.whatxe.xlib.form.VisualFormDefinition;
+import com.whatxe.xlib.lifecycle.DataDrivenLifecycleStageApi;
+import com.whatxe.xlib.lifecycle.LifecycleStageDefinition;
 import com.whatxe.xlib.ability.GrantBundleDefinition;
 import com.whatxe.xlib.ability.IdentityDefinition;
 import com.whatxe.xlib.ability.ModeDefinition;
@@ -95,6 +101,12 @@ final class DataDrivenContentDebugCommands {
             new DynamicCommandExceptionType(value -> Component.literal("Unknown upgrade consume rule definition: " + value));
     private static final DynamicCommandExceptionType UNKNOWN_UPGRADE_KILL_RULE =
             new DynamicCommandExceptionType(value -> Component.literal("Unknown upgrade kill rule definition: " + value));
+    private static final DynamicCommandExceptionType UNKNOWN_LIFECYCLE_STAGE =
+            new DynamicCommandExceptionType(value -> Component.literal("Unknown lifecycle stage definition: " + value));
+    private static final DynamicCommandExceptionType UNKNOWN_CAPABILITY_POLICY =
+            new DynamicCommandExceptionType(value -> Component.literal("Unknown capability policy definition: " + value));
+    private static final DynamicCommandExceptionType UNKNOWN_VISUAL_FORM =
+            new DynamicCommandExceptionType(value -> Component.literal("Unknown visual form definition: " + value));
     private static final DynamicCommandExceptionType UNKNOWN_REFERENCE_TOPIC =
             new DynamicCommandExceptionType(value -> Component.literal("Unknown generated reference topic: " + value));
 
@@ -604,6 +616,125 @@ final class DataDrivenContentDebugCommands {
                         + " | state_flags=" + XLibCommandSupport.joinIds(definition.stateFlags())
                         + " | unlock_artifacts=" + XLibCommandSupport.joinIds(definition.unlockedArtifacts())
                         + " | starting_nodes=" + XLibCommandSupport.joinIds(definition.startingNodes())),
+                false
+        );
+        return 1;
+    }
+
+    static CompletableFuture<Suggestions> suggestLifecycleStageIds(
+            CommandContext<CommandSourceStack> context,
+            SuggestionsBuilder builder
+    ) {
+        return SharedSuggestionProvider.suggestResource(DataDrivenLifecycleStageApi.allDefinitionIds(), builder);
+    }
+
+    static CompletableFuture<Suggestions> suggestCapabilityPolicyIds(
+            CommandContext<CommandSourceStack> context,
+            SuggestionsBuilder builder
+    ) {
+        return SharedSuggestionProvider.suggestResource(DataDrivenCapabilityPolicyApi.allDefinitionIds(), builder);
+    }
+
+    static CompletableFuture<Suggestions> suggestVisualFormIds(
+            CommandContext<CommandSourceStack> context,
+            SuggestionsBuilder builder
+    ) {
+        return SharedSuggestionProvider.suggestResource(DataDrivenVisualFormApi.allDefinitionIds(), builder);
+    }
+
+    static int listLifecycleStages(CommandSourceStack source) {
+        Collection<ResourceLocation> ids = DataDrivenLifecycleStageApi.allDefinitionIds();
+        source.sendSuccess(() -> Component.literal("lifecycle_stages=" + XLibCommandSupport.joinIds(ids)), false);
+        return ids.size();
+    }
+
+    static int inspectLifecycleStage(CommandSourceStack source, ResourceLocation definitionId) throws CommandSyntaxException {
+        LifecycleStageDefinition definition = DataDrivenLifecycleStageApi.findDefinition(definitionId)
+                .map(DataDrivenLifecycleStageApi.LoadedLifecycleStageDefinition::definition)
+                .orElseThrow(() -> UNKNOWN_LIFECYCLE_STAGE.create(definitionId.toString()));
+        source.sendSuccess(
+                () -> Component.literal(definition.id()
+                        + " | duration_ticks=" + definition.durationTicks().map(Object::toString).orElse("-")
+                        + " | auto_transitions=" + definition.autoTransitions().size()
+                        + " | manual_targets=" + XLibCommandSupport.joinIds(definition.manualTransitionTargets())),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("project_state_flags=" + XLibCommandSupport.joinIds(definition.projectedStateFlags())
+                        + " | project_grant_bundles=" + XLibCommandSupport.joinIds(definition.projectedGrantBundles())
+                        + " | project_identities=" + XLibCommandSupport.joinIds(definition.projectedIdentities())),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("project_capability_policies=" + XLibCommandSupport.joinIds(definition.projectedCapabilityPolicies())
+                        + " | project_visual_form=" + definition.projectedVisualForm().map(ResourceLocation::toString).orElse("-")),
+                false
+        );
+        return 1;
+    }
+
+    static int listCapabilityPolicies(CommandSourceStack source) {
+        Collection<ResourceLocation> ids = DataDrivenCapabilityPolicyApi.allDefinitionIds();
+        source.sendSuccess(() -> Component.literal("capability_policies=" + XLibCommandSupport.joinIds(ids)), false);
+        return ids.size();
+    }
+
+    static int inspectCapabilityPolicy(CommandSourceStack source, ResourceLocation definitionId) throws CommandSyntaxException {
+        CapabilityPolicyDefinition definition = DataDrivenCapabilityPolicyApi.findDefinition(definitionId)
+                .map(DataDrivenCapabilityPolicyApi.LoadedCapabilityPolicyDefinition::definition)
+                .orElseThrow(() -> UNKNOWN_CAPABILITY_POLICY.create(definitionId.toString()));
+        source.sendSuccess(
+                () -> Component.literal(definition.id()
+                        + " | merge_mode=" + definition.mergeMode().name().toLowerCase(java.util.Locale.ROOT)
+                        + " | priority=" + definition.priority()),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("inventory=[open=" + definition.inventory().canOpenInventory()
+                        + " move=" + definition.inventory().canMoveItems()
+                        + " hotbar=" + definition.inventory().canUseHotbar()
+                        + " offhand=" + definition.inventory().canUseOffhand() + "]"
+                        + " | equipment=[equip_armor=" + definition.equipment().canEquipArmor()
+                        + " unequip_armor=" + definition.equipment().canUnequipArmor()
+                        + " equip_held=" + definition.equipment().canEquipHeldItems() + "]"),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("movement=[sprint=" + definition.movement().canSprint()
+                        + " sneak=" + definition.movement().canSneak()
+                        + " jump=" + definition.movement().canJump()
+                        + " fly=" + definition.movement().canFly() + "]"
+                        + " | interaction=[blocks=" + definition.interaction().canInteractWithBlocks()
+                        + " entities=" + definition.interaction().canInteractWithEntities()
+                        + " attack_players=" + definition.interaction().canAttackPlayers()
+                        + " attack_mobs=" + definition.interaction().canAttackMobs() + "]"),
+                false
+        );
+        return 1;
+    }
+
+    static int listVisualForms(CommandSourceStack source) {
+        Collection<ResourceLocation> ids = DataDrivenVisualFormApi.allDefinitionIds();
+        source.sendSuccess(() -> Component.literal("visual_forms=" + XLibCommandSupport.joinIds(ids)), false);
+        return ids.size();
+    }
+
+    static int inspectVisualForm(CommandSourceStack source, ResourceLocation definitionId) throws CommandSyntaxException {
+        VisualFormDefinition definition = DataDrivenVisualFormApi.findDefinition(definitionId)
+                .map(DataDrivenVisualFormApi.LoadedVisualFormDefinition::definition)
+                .orElseThrow(() -> UNKNOWN_VISUAL_FORM.create(definitionId.toString()));
+        source.sendSuccess(
+                () -> Component.literal(definition.id()
+                        + " | kind=" + definition.kind().name().toLowerCase(java.util.Locale.ROOT)
+                        + " | first_person_policy=" + definition.firstPersonPolicy().name().toLowerCase(java.util.Locale.ROOT)
+                        + " | render_scale=" + definition.renderScale()),
+                false
+        );
+        source.sendSuccess(
+                () -> Component.literal("model_profile=" + definition.modelProfileId().map(ResourceLocation::toString).orElse("-")
+                        + " | cue_route_profile=" + definition.cueRouteProfileId().map(ResourceLocation::toString).orElse("-")
+                        + " | hud_profile=" + definition.hudProfileId().map(ResourceLocation::toString).orElse("-")
+                        + " | sound_profile=" + definition.soundProfileId().map(ResourceLocation::toString).orElse("-")),
                 false
         );
         return 1;

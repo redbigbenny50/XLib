@@ -3,8 +3,11 @@ package com.whatxe.xlib;
 import com.whatxe.xlib.ability.AbilityApi;
 import com.whatxe.xlib.binding.EntityBindingApi;
 import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.capability.DataDrivenCapabilityPolicyApi;
 import com.whatxe.xlib.body.BodyTransitionApi;
+import com.whatxe.xlib.form.DataDrivenVisualFormApi;
 import com.whatxe.xlib.form.VisualFormApi;
+import com.whatxe.xlib.lifecycle.DataDrivenLifecycleStageApi;
 import com.whatxe.xlib.lifecycle.LifecycleStageApi;
 import com.whatxe.xlib.ability.AbilityDetectorApi;
 import com.whatxe.xlib.ability.ArtifactApi;
@@ -99,6 +102,9 @@ public final class AbilityLibrary {
 
     private static void onAddReloadListener(AddReloadListenerEvent event) {
         RecipePermissionApi.onAddReloadListener(event);
+        DataDrivenLifecycleStageApi.onAddReloadListener(event);
+        DataDrivenCapabilityPolicyApi.onAddReloadListener(event);
+        DataDrivenVisualFormApi.onAddReloadListener(event);
     }
 
     private static void onDatapackSync(OnDatapackSyncEvent event) {

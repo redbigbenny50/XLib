@@ -41,7 +41,12 @@ public final class CapabilityPolicyApi {
     }
 
     public static Optional<CapabilityPolicyDefinition> find(ResourceLocation policyId) {
-        return Optional.ofNullable(POLICIES.get(policyId));
+        CapabilityPolicyDefinition policy = POLICIES.get(policyId);
+        if (policy != null) {
+            return Optional.of(policy);
+        }
+        return DataDrivenCapabilityPolicyApi.findDefinition(policyId)
+                .map(DataDrivenCapabilityPolicyApi.LoadedCapabilityPolicyDefinition::definition);
     }
 
     public static Collection<CapabilityPolicyDefinition> all() {

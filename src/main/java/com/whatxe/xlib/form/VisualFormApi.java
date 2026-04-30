@@ -38,7 +38,12 @@ public final class VisualFormApi {
     }
 
     public static Optional<VisualFormDefinition> findDefinition(ResourceLocation id) {
-        return Optional.ofNullable(DEFINITIONS.get(id));
+        VisualFormDefinition definition = DEFINITIONS.get(id);
+        if (definition != null) {
+            return Optional.of(definition);
+        }
+        return DataDrivenVisualFormApi.findDefinition(id)
+                .map(DataDrivenVisualFormApi.LoadedVisualFormDefinition::definition);
     }
 
     public static Collection<VisualFormDefinition> all() {
