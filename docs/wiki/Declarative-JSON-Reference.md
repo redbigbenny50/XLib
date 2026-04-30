@@ -235,6 +235,68 @@ It complements the progression-specific reference page and is meant to stay alig
 | `starting_node` | `resource_location` | no | `-` | Optional single managed starting node id. |
 | `starting_nodes` | `array<resource_location>` | no | `-` | Additional managed starting node ids. |
 
+## Lifecycle Stage Definitions
+
+- Topic id: `lifecycle_stages`
+- Authoring location: `data/<namespace>/xlib/lifecycle_stages/*.json`
+- Note: `duration_ticks` must be a positive integer when present.
+- Note: Each `auto_transitions` entry requires `target` and `trigger`; valid trigger values are `timer`, `manual`, `death`, `respawn`, `advancement`, `condition`.
+- Note: Cross-references (projected bundles, identities, flags, policies, and visual forms) are validated against Java-registered definitions at reload time; missing ids produce a server log warning.
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | `resource_location` | no | `file id` | If omitted, the datapack file id becomes the runtime id. |
+| `duration_ticks` | `int` | no | `-` | Optional positive tick duration for the TIMER trigger. |
+| `auto_transitions` | `array<object>` | no | `[]` | Automatic transitions; each entry has `target`, `trigger`, and optional `preserve_elapsed`. |
+| `manual_transition_targets` | `array<resource_location>` | no | `[]` | Stage ids that may be targeted by manual transition requests. |
+| `project_state_flags` | `array<resource_location>` | no | `[]` | State flag ids granted while this stage is active. |
+| `project_grant_bundles` | `array<resource_location>` | no | `[]` | Grant bundle ids activated while this stage is active. |
+| `project_identities` | `array<resource_location>` | no | `[]` | Identity ids projected while this stage is active. |
+| `project_capability_policies` | `array<resource_location>` | no | `[]` | Capability policy ids applied while this stage is active. |
+| `project_visual_form` | `resource_location` | no | `-` | Optional visual form id applied while this stage is active. |
+
+## Capability Policy Definitions
+
+- Topic id: `capability_policies`
+- Authoring location: `data/<namespace>/xlib/capability_policies/*.json`
+- Note: All policy dimension objects are optional; omitted dimensions default to fully permissive.
+- Note: `merge_mode` controls how multiple active policies combine; valid values are `restrictive` and `permissive`.
+- Note: `allowed_item_tags` and `blocked_item_tags` in `held_items` accept arrays of resource-location tag ids.
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | `resource_location` | no | `file id` | If omitted, the datapack file id becomes the runtime id. |
+| `merge_mode` | `enum` | no | `restrictive` | How multiple active policies merge: `restrictive` or `permissive`. |
+| `priority` | `int` | no | `0` | Resolution priority when multiple policies are active. |
+| `inventory` | `object` | no | `full` | `can_open_inventory`, `can_move_items`, `can_use_hotbar`, `can_use_offhand`. |
+| `equipment` | `object` | no | `full` | `can_equip`, `can_unequip`. |
+| `held_items` | `object` | no | `full` | `can_use_tools`, `allowed_item_tags`, `blocked_item_tags`. |
+| `crafting` | `object` | no | `full` | `can_craft`, `allowed_station_tags`, `blocked_station_tags`. |
+| `containers` | `object` | no | `full` | `can_open_chests`, `can_open_furnaces`, `can_open_barrels`. |
+| `pickup_drop` | `object` | no | `full` | `can_pickup_items`, `can_drop_items`. |
+| `interaction` | `object` | no | `full` | `can_attack_players`, `can_attack_mobs`, `can_interact_with_blocks`. |
+| `menus` | `object` | no | `full` | `can_open_menus`. |
+| `movement` | `object` | no | `full` | `can_sprint`, `can_sneak`, `can_jump`, `can_fly`. |
+
+## Visual Form Definitions
+
+- Topic id: `visual_forms`
+- Authoring location: `data/<namespace>/xlib/visual_forms/*.json`
+- Note: `kind` is required; valid values are `humanoid`, `creature`, `vehicle`, `construct`, `spirit`, `abstract`.
+- Note: `render_scale` must be a positive float when present.
+- Note: Profile id fields (`model_profile`, `cue_route_profile`, `hud_profile`, `sound_profile`) are optional references to backend-specific profile registries.
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `id` | `resource_location` | no | `file id` | If omitted, the datapack file id becomes the runtime id. |
+| `kind` | `enum` | yes | `-` | Required form kind: `humanoid`, `creature`, `vehicle`, `construct`, `spirit`, or `abstract`. |
+| `model_profile` | `resource_location` | no | `-` | Optional model-profile id for animation/skinning backends. |
+| `cue_route_profile` | `resource_location` | no | `-` | Optional cue-route-profile id for animation cue routing. |
+| `hud_profile` | `resource_location` | no | `-` | Optional HUD-profile id for form-specific overlay layout. |
+| `sound_profile` | `resource_location` | no | `-` | Optional sound-profile id for form-specific audio. |
+| `first_person_policy` | `enum` | no | `default` | First-person visibility policy: `default`, `hidden`, or `forced`. |
+| `render_scale` | `float` | no | `1.0` | Positive render-scale multiplier applied to this form. |
+
 ## Mode Definitions
 
 - Topic id: `modes`

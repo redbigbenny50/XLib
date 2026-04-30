@@ -7,6 +7,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.whatxe.xlib.XLib;
+import com.whatxe.xlib.ability.GrantBundleApi;
+import com.whatxe.xlib.ability.IdentityApi;
+import com.whatxe.xlib.ability.StateFlagApi;
+import com.whatxe.xlib.capability.CapabilityPolicyApi;
+import com.whatxe.xlib.form.VisualFormApi;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -187,6 +192,40 @@ public final class DataDrivenLifecycleStageApi {
             }
             loadedDefinitions = Map.copyOf(definitions);
             definitionJsonByFileId = Map.copyOf(definitionJsons);
+            validateCrossReferences(definitions);
+        }
+
+        private static void validateCrossReferences(Map<ResourceLocation, LoadedLifecycleStageDefinition> definitions) {
+            for (LoadedLifecycleStageDefinition loaded : definitions.values()) {
+                LifecycleStageDefinition def = loaded.definition();
+                ResourceLocation stageId = loaded.id();
+
+                for (ResourceLocation bundleId : def.projectedGrantBundles()) {
+                    if (GrantBundleApi.findBundle(bundleId).isEmpty()) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': projected grant bundle '{}' is not registered", stageId, bundleId);
+                    }
+                }
+                for (ResourceLocation identityId : def.projectedIdentities()) {
+                    if (IdentityApi.findIdentity(identityId).isEmpty()) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': projected identity '{}' is not registered", stageId, identityId);
+                    }
+                }
+                for (ResourceLocation flagId : def.projectedStateFlags()) {
+                    if (StateFlagApi.findStateFlag(flagId).isEmpty()) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': projected state flag '{}' is not registered", stageId, flagId);
+                    }
+                }
+                for (ResourceLocation policyId : def.projectedCapabilityPolicies()) {
+                    if (CapabilityPolicyApi.find(policyId).isEmpty()) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': projected capability policy '{}' is not registered", stageId, policyId);
+                    }
+                }
+                def.projectedVisualForm().ifPresent(formId -> {
+                    if (VisualFormApi.findDefinition(formId).isEmpty()) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': projected visual form '{}' is not registered", stageId, formId);
+                    }
+                });
+            }
         }
     }
 }

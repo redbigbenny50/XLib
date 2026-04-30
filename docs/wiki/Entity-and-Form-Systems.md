@@ -52,6 +52,12 @@ CapabilityPolicyApi.resolved(player);  // ResolvedCapabilityPolicyState
 AbilityRequirements.capabilityPolicyActive(policyId)
 ```
 
+### JSON authoring
+
+Capability policies can be defined in datapacks without writing Java. Place files under `data/<namespace>/xlib/capability_policies/*.json`. Each file is parsed by `DataDrivenCapabilityPolicyApi` and becomes available through `CapabilityPolicyApi.find()` at runtime.
+
+See [Declarative JSON Reference](Declarative-JSON-Reference) — **Capability Policy Definitions** for the full field table.
+
 ---
 
 ## Entity Bindings (`com.whatxe.xlib.binding`)
@@ -173,6 +179,12 @@ LifecycleStageDefinition.builder(id)
 AbilityRequirements.lifecycleStageActive(stageId)
 ```
 
+### JSON authoring
+
+Lifecycle stages can be defined in datapacks without writing Java. Place files under `data/<namespace>/xlib/lifecycle_stages/*.json`. Each file is parsed by `DataDrivenLifecycleStageApi` and becomes available through `LifecycleStageApi.findDefinition()` at runtime. Projected cross-references (grant bundles, identities, state flags, capability policies, and visual forms) are validated against Java-registered definitions at reload time, with warnings logged for any unresolved ids.
+
+See [Declarative JSON Reference](Declarative-JSON-Reference) — **Lifecycle Stage Definitions** for the full field table.
+
 ---
 
 ## Visual Forms (`com.whatxe.xlib.form`)
@@ -216,6 +228,12 @@ VisualFormApi.activeForms(player);    // all active form ids
 ```java
 AbilityRequirements.visualFormActive(formId)
 ```
+
+### JSON authoring
+
+Visual forms can be defined in datapacks without writing Java. Place files under `data/<namespace>/xlib/visual_forms/*.json`. Each file is parsed by `DataDrivenVisualFormApi` and becomes available through `VisualFormApi.findDefinition()` at runtime. The `kind` field is required; all profile references and the `first_person_policy` are optional.
+
+See [Declarative JSON Reference](Declarative-JSON-Reference) — **Visual Form Definitions** for the full field table.
 
 ---
 
