@@ -2,6 +2,8 @@
 
 This page covers the core combat API: registering abilities, spending resources, and deciding what appears on the player's combat bar.
 
+For bounded content, XLib also supports datapack-defined abilities, passives, modes, and related reference data. Use [Declarative JSON Reference](Declarative-JSON-Reference.md) for authoring format details and `/xlib debug content ...` when you need to inspect what the runtime actually loaded.
+
 ## Ability Registration
 
 Register an ability with `AbilityDefinition.builder(...)`.
@@ -85,6 +87,8 @@ Useful metadata helpers:
 The built-in ability menu also searches these metadata ids, exposes dedicated page/group/family scope controls, and supports a metadata-aware catalog sort for larger libraries. The stock details panel now stays focused on slot and gameplay information by default; selected ability family/group/page/tag rows are still available when a custom presentation explicitly enables metadata details.
 
 The same neutral `family/group/page/tag` model now also exists on `PassiveDefinition`, `UpgradeTrackDefinition`, and `UpgradeNodeDefinition`, so one addon vocabulary can span active abilities, passive kits, and progression content. Use `PassiveApi` and `UpgradeApi` metadata lookup helpers when you need that same organization outside the ability menu.
+
+When that metadata or declarative content does not line up with what you expect, inspect it through `/xlib debug content abilities inspect <id>` and `/xlib debug content passives inspect <id>` before chasing runtime bugs elsewhere.
 
 ## Passives
 
@@ -247,6 +251,8 @@ Useful integration points:
 - `XLibRuntimeCueType.RELEASE`
 
 Charge-release abilities automatically emit `CHARGE_PROGRESS` while active and `RELEASE` when they resolve. Normal activations emit `ACTIVATION_START` on success and `ACTIVATION_FAIL` when XLib rejects the use before it consumes the action.
+
+The neutral cue APIs work whether or not you use a third-party presentation backend. BLib is one optional bridge on top of this layer, not a requirement for XLib's core combat runtime.
 
 ## Ownership vs Loadout
 

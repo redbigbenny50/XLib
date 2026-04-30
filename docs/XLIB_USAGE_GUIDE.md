@@ -20,6 +20,8 @@ XLib's repository license is `All Rights Reserved`. This documentation describes
 6. [Progression](wiki/Progression.md)
 7. [Entity and Form Systems](wiki/Entity-and-Form-Systems.md)
 8. [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md)
+9. [Declarative JSON Reference](wiki/Declarative-JSON-Reference.md)
+10. [Progression JSON Reference](wiki/Progression-JSON-Reference.md)
 
 ## What XLib Covers
 
@@ -52,6 +54,8 @@ XLib is a library mod for:
 - lifecycle stages for players with authored timer/trigger transitions and projected state flags, bundles, identities, forms, and policies
 - visual form definitions for model/cue/HUD adapter backends with primary-form resolution and source tracking
 - body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides
+- bounded datapack JSON authoring for many shipped systems, including lifecycle stages, capability policies, and visual forms
+- content-reference and content-definition inspection through `/xlib debug content ...`
 
 ## Quick Mental Model
 
@@ -86,6 +90,8 @@ XLib is already a broad framework mod, not just a starter slice.
 - The core runtime now emits neutral `XLibRuntimeCue` objects plus `XLibRuntimeCueEvent`, so addon-side animation, VFX, or sound bridges can observe combat flow without XLib hard-depending on one presentation backend.
 - `XLibCueAdapterApi` and `XLibCueRouteProfileApi` now let addons register optional backend adapters and route cues separately to player-body animation, model animation, or effect-playback capability surfaces.
 - `com.whatxe.xlib.integration.blib` is one optional bridge on top of that cue system. If BLib is absent, only the BLib `AzCommand` bridge is unavailable; the neutral cue APIs and route profiles still function.
+- XLib now also ships data-driven authoring for the newer entity/form systems through `DataDrivenLifecycleStageApi`, `DataDrivenCapabilityPolicyApi`, and `DataDrivenVisualFormApi`, so bounded state/config content can move into datapacks instead of forcing every addon to register those definitions in Java.
+- `/xlib debug content ...` is now wired at runtime, so authored JSON surfaces can be listed and inspected without reading raw datapack files or internal reload caches.
 - `/xlib` admin and debug commands, JUnit coverage, and runtime GameTests are already part of the repo.
 
 Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you want the full whole-mod map before diving into one subsystem page.
@@ -136,6 +142,7 @@ Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you w
 - Read [Grants, Items, and Recipes](wiki/Grants-Items-and-Recipes.md) when your addon needs source-tracked content unlocks or managed items.
 - Read [Progression](wiki/Progression.md) only if you want trees, points, counters, or node rewards.
 - Keep [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md) open while validating your addon or building admin flows.
+- Use [Declarative JSON Reference](wiki/Declarative-JSON-Reference.md) and [Progression JSON Reference](wiki/Progression-JSON-Reference.md) when your addon prefers datapack-defined bounded content over Java registration.
 
 ## Current Limits
 

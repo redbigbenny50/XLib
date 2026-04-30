@@ -177,6 +177,11 @@ XLib ships `/xlib` command trees for:
 - recipes
 - profiles
 - progression
+- capability_policy
+- bindings
+- stages
+- visual_form
+- body
 - debug
 
 High-value commands:
@@ -189,11 +194,19 @@ High-value commands:
 - `/xlib profiles claim|reset|reopen|list|pending|resync ...`
 - `/xlib recipes restrict|unrestrict|grant|revoke|clear|list|inspect|sources ...`
 - `/xlib progression unlock|revoke|track revoke|clear|inspect ...`
+- `/xlib capability_policy apply|revoke|clear|list ...`
+- `/xlib bindings list|unbind|clear ...`
+- `/xlib stages set|clear|get|transition ...`
+- `/xlib visual_form apply|revoke|clear|get ...`
+- `/xlib body return|clear|get ...`
 - `/xlib debug state <player>`
 - `/xlib debug counters <player>`
 - `/xlib debug source <player> <source>`
 - `/xlib debug export <player>`
 - `/xlib debug diff <player> <snapshot>`
+- `/xlib debug content reference list`
+- `/xlib debug content <system> list`
+- `/xlib debug content <system> inspect <id>`
 
 Notes:
 
@@ -203,6 +216,8 @@ Notes:
 - `/xlib profiles ...` now exposes registered profile groups, registered profiles, current pending-group state, and safe admin flows for claim/reset/reopen/resync without addon authors having to mutate attachments directly.
 - `/xlib recipes restrict` applies runtime recipe restrictions immediately and resyncs online players plus already-open crafting menus.
 - `/xlib recipes inspect` reports effective metadata including tags, categories, outputs, advancements, and output NBT when present.
+- `/xlib capability_policy ...`, `/xlib bindings ...`, `/xlib stages ...`, `/xlib visual_form ...`, and `/xlib body ...` expose the newer entity/form runtime systems directly instead of forcing attachment edits or custom debug code.
+- `/xlib debug content ...` is the content-authoring inspection surface for registered and datapack-defined reference topics, conditions, context grants, equipment bindings, grant bundles, artifacts, abilities, passives, identities, support packages, profile groups, profiles, modes, combo chains, lifecycle stages, capability policies, visual forms, and progression definitions.
 - `/xlib debug state` now also reports detector windows, active/unlocked artifacts, identities, grant bundles, selected profiles, and pending profile groups; `/xlib debug source` includes structured ownership descriptors plus grouped identities/bundles/artifact unlocks by source id; and `/xlib debug export` now includes `detector_states`, `artifact_states`, `artifact_unlock_sources`, `identity_states`, `grant_bundle_states`, `grant_bundle_sources`, `selected_profiles`, `pending_profile_groups`, `profile_selection_data`, `managed_unlock_sources`, `source_descriptors`, and the earlier passive/mode/state sections in the JSON snapshot.
 
 ## Recommended Testing Flow

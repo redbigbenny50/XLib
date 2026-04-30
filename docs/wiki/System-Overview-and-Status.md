@@ -5,6 +5,7 @@ This page is the quickest "what already exists today?" summary for the whole lib
 ## Current Architecture
 
 - XLib bootstraps registry-style APIs for abilities, passives, modes, combos, context grants, combat marks, combat reaction, granted items, recipes, progression, capability policies, entity bindings, lifecycle stages, visual forms, body transitions, attachments, payloads, and commands.
+- Many bounded registries now also have data-driven companions. Abilities, passives, modes, profile groups, profiles, artifacts, support packages, identities, grant bundles, progression content, lifecycle stages, capability policies, and visual forms can all be inspected through `/xlib debug content ...`, and the newer entity/form surfaces also ship reload-time cross-reference validation.
 - Player state lives in synced attachments: `AbilityData` for combat, loadout, grant, and runtime state, `ProfileSelectionData` for persistent profile/onboarding state, `UpgradeProgressData` for progression, `CombatMarkData` for living-entity marks, `CombatReactionData` for recent-hit state, `CapabilityPolicyData` for active capability restriction policies, `LifecycleStageData` for the current lifecycle stage, `VisualFormData` for active visual forms, and `BodyTransitionData` for an active body transition. Living entities also carry `EntityBindingData` for named entity bindings.
 - The server is authoritative for activation, cooldown and charge ticking, grant syncing, item cleanup, recipe permission sync, progression reward projection, capability policy enforcement, lifecycle stage ticking and transitions, and body transition management.
 - The client mainly renders synced state and sends intent payloads for ability activation, loadout assignment, and progression unlocks.
@@ -45,6 +46,7 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Player lifecycle stages with authored auto-transitions driven by timers, death, respawn, advancements, or manual requests, projected state flags, grant bundles, identities, capability policies, and visual forms while a stage is active, plus pending-transition state, status tracking, and sanitization on login.
 - Source-tracked player visual forms with multi-form stacking, primary-form resolution, optional model/cue/HUD adapter backend registration, and sanitization on login. Commands apply, revoke, and get the active visual form set.
 - Authored body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides, origin-body preservation/destroy/shell policy, control policy, and reversible semantics. Commands trigger return, force-clear, and get active transition state.
+- Bounded datapack authoring now covers the newer entity/form systems through `DataDrivenLifecycleStageApi`, `DataDrivenCapabilityPolicyApi`, and `DataDrivenVisualFormApi`, and reload-time validation now checks stage transition targets plus projected bundles, identities, state flags, capability policies, and visual forms against registered definitions.
 - Built-in `/xlib` admin and debug commands plus both JUnit coverage and runtime GameTests. Debug export sections now also include capability policies, entity bindings, lifecycle stage, visual forms, and body transition state.
 
 ## Runtime Flow
@@ -54,7 +56,8 @@ This page is the quickest "what already exists today?" summary for the whole lib
 3. Per-player server ticks run ability runtime, passive runtime, granted-item runtime, recipe-result enforcement, and lifecycle stage ticking (timer auto-transitions and elapsed-tick tracking).
 4. Entity ticks also run entity binding duration countdowns and break-condition evaluation.
 5. Dynamic grant sync pulls from items, contextual providers, active modes, and unlocked progression sources into the same source-tracked ownership model.
-6. Client menus and the combat HUD read the synced attachments, while activation, assignment, and unlock requests travel back to the server through payloads.
+6. Datapack reloads rebuild bounded content caches and validate cross references before those definitions become visible through API fallback lookup and `/xlib debug content ...`.
+7. Client menus and the combat HUD read the synced attachments, while activation, assignment, and unlock requests travel back to the server through payloads.
 
 ## Foundation Status
 
@@ -86,6 +89,7 @@ This page is the quickest "what already exists today?" summary for the whole lib
 - Completed foundation: `LifecycleStageApi`, `LifecycleStageDefinition`, and `LifecycleStageState` now cover player lifecycle stages with authored timer/trigger/death/respawn/manual transitions, projected state flags, grant bundles, identities, capability policies, and visual forms while a stage is active, plus pending-transition status, elapsed tracking, sanitization on login, and respawn handling.
 - Completed foundation: `VisualFormApi`, `VisualFormDefinition`, and `VisualFormData` now cover source-tracked player visual forms with multi-form stacking, primary-form resolution, optional model/cue/HUD adapter backend identifiers, and sanitization on login.
 - Completed foundation: `BodyTransitionApi`, `BodyTransitionDefinition`, and `BodyTransitionState` now cover authored body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides, origin-body preservation/destroy/shell policy, reversible semantics, and sanitization on login.
+- Completed foundation: bounded datapack authoring now exists for lifecycle stages, capability policies, and visual forms, with reload listeners, API fallback lookup, `/xlib debug content ...` inspection, and validation of stage transition targets plus projected bundles, identities, state flags, policies, and forms.
 - Completed foundation: the optional progression layer now supports choice groups, explicit node or track locks, identity rewards, and identity-gated follow-up paths for stronger branch commitment and archetype progression.
 - Strong groundwork already exists for modes, source ownership, item-driven access, profile/onboarding state, recipe gating, progression, and UI.
 - The missing work is now mostly higher-level authoring UX and optional tooling rather than slot/container/profile foundations.

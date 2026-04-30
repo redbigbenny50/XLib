@@ -6,9 +6,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 ## Current Size Snapshot
 
-- Current Java footprint: `265` main-source classes plus `44` JUnit test classes and `2` runtime GameTest classes.
-- Largest packages by file count today are `ability` (`110`), `client` (`48`), `command` (`17`), `api` (`14`), `combat` (`12`), `menu` / `progression` (tied at `10` each), the `presentation` / `cue` packages (`9` each), and `network` / `integration` (tied at `7` each).
-- The repository already ships a broad framework surface in-tree: combat runtime, grants and items, recipe permissions, progression, client UI, commands, and automated tests.
+- Current Java footprint: `366` main-source classes plus `74` JUnit test classes and `2` runtime GameTest classes.
+- Largest packages by file count today are `ability` (`128`), `client` (`48`), `command` (`25`), `progression` (`17`), `capability` (`16`), `binding` (`13`), `combat` (`12`), `cue` (`12`), `menu` (`10`), `presentation` (`10`), and `lifecycle` (`10`).
+- The repository already ships a broad framework surface in-tree: combat runtime, grants and items, recipe permissions, progression, entity/form systems, client UI, commands, automated tests, and bounded data-driven authoring layers.
 
 ## Documentation
 
@@ -29,7 +29,10 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - modes and combos
   - grants, items, and recipes
   - progression
+  - entity and form systems
   - events, commands, and testing
+  - declarative JSON reference
+  - progression JSON reference
 
 - `logs/`
   Local runtime log output from dev/game runs. This folder is intentionally gitignored and not part of the published source repository.
@@ -43,7 +46,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   NeoForge mod entrypoint. Creates the mod and calls `AbilityLibrary.bootstrap(...)`.
 
 - `src/main/java/com/whatxe/xlib/AbilityLibrary.java`
-  Core bootstrap. Registers registries, attachments, network payloads, commands, reload listeners, and freezes XLib registries during common setup/server startup.
+  Core bootstrap. Registers registries, attachments, network payloads, commands, reload listeners, and freezes XLib registries during common setup/server startup. Also wires the bounded data-driven reload listeners and content-reference docs used by `/xlib debug content ...`.
 
 - `src/main/java/com/whatxe/xlib/XLibRegistryGuard.java`
   Shared guard that prevents late registry mutation outside IDE/dev contexts.
@@ -55,6 +58,17 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - `JEI` and `EMI` are optional viewer integrations.
   - `BLib` is resolved from Modrinth Maven as `compileOnly` plus test-only so CI and fresh clones do not depend on a machine-local jar path.
   - `src/main/resources/META-INF/neoforge.mods.toml` does not declare BLib as a required runtime mod dependency.
+
+## Commands And Debug Surfaces
+
+- `src/main/java/com/whatxe/xlib/command/AbilityGrantCommands.java`
+  Root `/xlib` registration surface for admin, debug, and content-inspection trees. Wires the ability, passive, item, recipe, progression, profile, capability-policy, binding, stage, visual-form, body-transition, and debug subtrees into the `xlib` command root.
+
+- `src/main/java/com/whatxe/xlib/command/DebugCommandTree.java`
+  Debug command hub, including state/export/diff helpers and the `content` subtree.
+
+- `src/main/java/com/whatxe/xlib/command/ContentCommandTree.java`
+  `/xlib debug content ...` authoring inspection surface. Lists and inspects reference topics plus registered or datapack-defined conditions, context grants, equipment bindings, grant bundles, artifacts, abilities, passives, identities, support packages, profile groups, profiles, modes, combo chains, lifecycle stages, capability policies, visual forms, and progression definitions.
 
 ## Player Attachments
 
