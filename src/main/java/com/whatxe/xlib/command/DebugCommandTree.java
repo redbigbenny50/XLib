@@ -50,6 +50,7 @@ final class DebugCommandTree {
                                 .executes(context -> DebugAdminCommands.export(
                                         context.getSource(),
                                         EntityArgument.getPlayer(context, "target")
-                                ))));
+                                ))))
+                .then(ContentCommandTree.build());
     }
 }

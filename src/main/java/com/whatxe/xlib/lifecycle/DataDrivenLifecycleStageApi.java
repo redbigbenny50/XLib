@@ -200,6 +200,19 @@ public final class DataDrivenLifecycleStageApi {
                 LifecycleStageDefinition def = loaded.definition();
                 ResourceLocation stageId = loaded.id();
 
+                for (LifecycleStageTransition transition : def.autoTransitions()) {
+                    if (!definitions.containsKey(transition.targetStageId())) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': auto_transition target '{}' is not a known lifecycle stage",
+                                stageId, transition.targetStageId());
+                    }
+                }
+                for (ResourceLocation targetId : def.manualTransitionTargets()) {
+                    if (!definitions.containsKey(targetId)) {
+                        XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': manual_transition_target '{}' is not a known lifecycle stage",
+                                stageId, targetId);
+                    }
+                }
+
                 for (ResourceLocation bundleId : def.projectedGrantBundles()) {
                     if (GrantBundleApi.findBundle(bundleId).isEmpty()) {
                         XLib.LOGGER.warn("[xlib] lifecycle_stage '{}': projected grant bundle '{}' is not registered", stageId, bundleId);
