@@ -1,0 +1,36 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+runs
+run-data
+logs
+
+repo
+
+# local maintainer logs
+CODEX_ACTIVITY_LOG.md
+
+# local AI assistant state
+.claude/
+
+# local maintainer-only docs
+hidden-docs/

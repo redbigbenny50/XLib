@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.whatxe.xlib.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "client.GLXMixin",
+    "client.SystemReportMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
