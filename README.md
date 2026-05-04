@@ -11,10 +11,13 @@ XLib already ships broad framework coverage for:
 - active combat abilities with cooldowns, charges, charge-release flows, and resources
 - passives, modes, forms, stances, and combo follow-up chains
 - source-tracked grants for abilities, passives, managed items, recipes, bundles, identities, and profiles
+- tracked values, trigger-driven tracked-value rules, and tracked-value-backed survival or food-bar replacement
 - persistent profile groups with required onboarding and reset-aware selection state
 - optional progression tracks, nodes, point types, counters, branch locks, and identity-gated follow-ups
 - generalized state policies, state flags, detector windows, reactive triggers, and staged ability sequences
-- capability policies for inventory, movement, crafting, held-item, menu, interaction, and equipment restrictions
+- capability policies for inventory, movement, crafting, held-item, menu, interaction, pickup, hotbar, and equipment restrictions
+- synthetic entity classifications that let systems treat one entity as extra entity types or tag groups at runtime
+- player damage modifier profiles with exact and tag-based incoming or outgoing scaling
 - entity bindings, lifecycle stages, visual forms, and body transitions
 - built-in or replaceable combat, progression, and onboarding UI
 - bounded datapack JSON authoring for many gameplay surfaces
@@ -66,6 +69,13 @@ Most addon-facing systems follow the same pattern:
 - tracks, nodes, branch locks, choice groups
 - reward projection back into the grant systems
 
+### Values, Classification, and Survival
+
+- `TrackedValueApi`
+- `DataDrivenTrackedValueRuleApi`
+- `EntityClassificationApi`
+- `DamageModifierProfileApi`
+
 ### Entity and Form Systems
 
 - `CapabilityPolicyApi`
@@ -103,6 +113,9 @@ Current data-driven surfaces include:
 - lifecycle stages
 - capability policies
 - visual forms
+- tracked values
+- tracked value rules
+- damage modifier profiles
 - progression point types, tracks, nodes, consume rules, and kill rules
 
 The newer entity/form systems are no longer Java-only:
@@ -110,6 +123,9 @@ The newer entity/form systems are no longer Java-only:
 - `data/<namespace>/xlib/lifecycle_stages/*.json`
 - `data/<namespace>/xlib/capability_policies/*.json`
 - `data/<namespace>/xlib/visual_forms/*.json`
+- `data/<namespace>/xlib/tracked_values/*.json`
+- `data/<namespace>/xlib/tracked_value_rules/*.json`
+- `data/<namespace>/xlib/damage_modifier_profiles/*.json`
 
 XLib validates bounded cross-references at reload time and logs warnings for unresolved ids where appropriate.
 
@@ -126,6 +142,7 @@ High-value command groups:
 - `/xlib profiles ...`
 - `/xlib progression ...`
 - `/xlib capability_policy ...`
+- `/xlib classification ...`
 - `/xlib bindings ...`
 - `/xlib stages ...`
 - `/xlib visual_form ...`
@@ -143,6 +160,9 @@ The `debug content` branch exposes:
 - `lifecycle_stages list|inspect`
 - `capability_policies list|inspect`
 - `visual_forms list|inspect`
+- `tracked_values list|inspect`
+- `tracked_value_rules list|inspect`
+- `damage_modifier_profiles list|inspect`
 - and the rest of the shipped data-driven content surfaces
 
 ## Client Experience
@@ -155,6 +175,7 @@ Built-in client surfaces already include:
 - progression list view plus icon-node tree view
 - profile-selection UI for required onboarding
 - configurable resource HUD placement
+- tracked-value food-bar replacement with custom survival behavior when configured
 
 Addons can keep the built-in UI and customize around it, or replace the screens and HUD entirely.
 
@@ -176,6 +197,9 @@ Start here:
 - [docs/wiki/Grants-Items-and-Recipes.md](docs/wiki/Grants-Items-and-Recipes.md)
 - [docs/wiki/Progression.md](docs/wiki/Progression.md)
 - [docs/wiki/Entity-and-Form-Systems.md](docs/wiki/Entity-and-Form-Systems.md)
+- [docs/wiki/Tracked-Values-and-Survival.md](docs/wiki/Tracked-Values-and-Survival.md)
+- [docs/wiki/Capability-Policies-and-Restrictions.md](docs/wiki/Capability-Policies-and-Restrictions.md)
+- [docs/wiki/Synthetic-Classifications-and-Damage.md](docs/wiki/Synthetic-Classifications-and-Damage.md)
 - [docs/wiki/Events-Commands-and-Testing.md](docs/wiki/Events-Commands-and-Testing.md)
 - [docs/wiki/Declarative-JSON-Reference.md](docs/wiki/Declarative-JSON-Reference.md)
 - [docs/wiki/Progression-JSON-Reference.md](docs/wiki/Progression-JSON-Reference.md)

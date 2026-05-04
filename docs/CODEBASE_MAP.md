@@ -6,8 +6,8 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 ## Current Size Snapshot
 
-- Current Java footprint: `366` main-source classes plus `74` JUnit test classes and `2` runtime GameTest classes.
-- Largest packages by file count today are `ability` (`128`), `client` (`48`), `command` (`25`), `progression` (`17`), `capability` (`16`), `binding` (`13`), `combat` (`12`), `cue` (`12`), `menu` (`10`), `presentation` (`10`), and `lifecycle` (`10`).
+- Current Java footprint: `389` main-source classes plus `80` JUnit test classes and `2` runtime GameTest classes.
+- Largest packages by file count today are `ability` (`129`), `client` (`53`), `command` (`27`), `progression` (`17`), `combat` (`17`), `capability` (`16`), `api` (`15`), `binding` (`13`), `cue` (`12`), `lifecycle` (`10`), `presentation` (`10`), and `menu` (`10`).
 - The repository already ships a broad framework surface in-tree: combat runtime, grants and items, recipe permissions, progression, entity/form systems, client UI, commands, automated tests, and bounded data-driven authoring layers.
 
 ## Documentation
@@ -30,6 +30,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - grants, items, and recipes
   - progression
   - entity and form systems
+  - tracked values and survival
+  - capability policies and restrictions
+  - synthetic classifications and damage
   - events, commands, and testing
   - declarative JSON reference
   - progression JSON reference
@@ -68,7 +71,7 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   Debug command hub, including state/export/diff helpers and the `content` subtree.
 
 - `src/main/java/com/whatxe/xlib/command/ContentCommandTree.java`
-  `/xlib debug content ...` authoring inspection surface. Lists and inspects reference topics plus registered or datapack-defined conditions, context grants, equipment bindings, grant bundles, artifacts, abilities, passives, identities, support packages, profile groups, profiles, modes, combo chains, lifecycle stages, capability policies, visual forms, tracked values, tracked value rules, and progression definitions.
+  `/xlib debug content ...` authoring inspection surface. Lists and inspects reference topics plus registered or datapack-defined conditions, context grants, equipment bindings, grant bundles, artifacts, abilities, passives, identities, support packages, profile groups, profiles, modes, combo chains, lifecycle stages, capability policies, visual forms, tracked values, tracked value rules, damage modifier profiles, and progression definitions.
 
 ## Player Attachments
 
@@ -234,7 +237,24 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   Merged union of all active policy axes for fast per-tick enforcement.
 
 - `src/main/java/com/whatxe/xlib/capability/CraftingPolicy.java`, `ContainerPolicy.java`, `InventoryPolicy.java`, `MovementPolicy.java`, `HeldItemPolicy.java`, `InteractionPolicy.java`, `PickupDropPolicy.java`, `EquipmentPolicy.java`, `MenuPolicy.java`
-  Individual policy-axis record types.
+  Individual policy-axis record types. Current granularity now includes hotbar selection changes, exact item allow/block filters, armor allow/block filters, block/entity allow/block filters, pickup filters, riding restrictions, and workstation-specific access gates.
+
+## Entity Classifications
+
+- `src/main/java/com/whatxe/xlib/classification/EntityClassificationData.java`
+  Entity attachment data for synthetic entity-type and synthetic tag state, source ownership, and sanitize-friendly immutable mutation helpers.
+
+- `src/main/java/com/whatxe/xlib/classification/ResolvedEntityClassificationState.java`
+  Cached merged state view that exposes effective synthetic entity types and tags for runtime matching.
+
+- `src/main/java/com/whatxe/xlib/classification/EntityClassificationApi.java`
+  Apply/revoke/clear/list helpers for synthetic entity types and synthetic tags, merged real-plus-synthetic selector checks, effective tag/entity-type lookup, sanitize, and attachment get/set helpers.
+
+- `src/main/java/com/whatxe/xlib/classification/EntityClassificationCompatApi.java`
+  Compat-facing notification and query surface for systems that need to mirror synthetic classification changes into other targeting or AI layers.
+
+- `src/main/java/com/whatxe/xlib/classification/EntityClassificationMatchMode.java`
+  Query mode enum for real-only, synthetic-only, or merged matching behavior.
 
 ## Entity Bindings
 
@@ -339,6 +359,9 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 - `src/main/java/com/whatxe/xlib/combat/DamageModifierProfileApi.java`
   Source-tracked player damage modifier profiles for exact damage types and damage-type tags, with multiplicative incoming/outgoing vulnerability, resistance, and immunity scaling resolved through XLib's player damage pipeline.
 
+- `src/main/java/com/whatxe/xlib/combat/DataDrivenDamageModifierProfileApi.java`
+  Datapack authoring and reload-time lookup layer for `data/<namespace>/xlib/damage_modifier_profiles/*.json`, with support for flat or nested incoming/outgoing damage selectors.
+
 - `src/main/java/com/whatxe/xlib/api/event/XLibOutgoingDamageEvent.java`
 - `src/main/java/com/whatxe/xlib/api/event/XLibIncomingDamageEvent.java`
   Public mutable player damage events for addon-side outgoing/incoming damage adjustment before XLib's player combat pipeline finalizes the amount.
@@ -356,6 +379,26 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 
 - `src/main/java/com/whatxe/xlib/ability/AbilityResourceBehaviors.java`
   Common resource behavior helpers, including exact fractional decay/refill variants.
+
+## Tracked Values And Survival
+
+- `src/main/java/com/whatxe/xlib/value/TrackedValueDefinition.java`
+  Authored tracked-stat definition: min/max, starting value, exact fractional drift, HUD metadata, food-replacement priority, and optional custom heal/starvation or food-intake conversion settings.
+
+- `src/main/java/com/whatxe/xlib/value/TrackedValueData.java`
+  Player attachment data for per-value exact state plus active food-replacement source ownership.
+
+- `src/main/java/com/whatxe/xlib/value/TrackedValueApi.java`
+  Registry plus player-state read/write helpers, tick-time drift, replacement-food-level computation, food-intake conversion, custom heal/starvation handling, and sync.
+
+- `src/main/java/com/whatxe/xlib/value/DataDrivenTrackedValueApi.java`
+  Datapack authoring layer for `data/<namespace>/xlib/tracked_values/*.json`.
+
+- `src/main/java/com/whatxe/xlib/value/TrackedValueRuleDefinition.java`
+  Authored tracked-value rule definition with trigger, selector, condition, priority, value operations, food-replacement toggles, state/policy/profile actions, and synthetic-classification actions.
+
+- `src/main/java/com/whatxe/xlib/value/DataDrivenTrackedValueRuleApi.java`
+  Datapack authoring and runtime-dispatch layer for `data/<namespace>/xlib/tracked_value_rules/*.json`.
 
 ## Modes / Forms / Combos
 
@@ -513,10 +556,10 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
   - hide-when-locked
 
 - `src/main/java/com/whatxe/xlib/ability/RestrictedRecipeRule.java`
-  Selector-style recipe restriction rule matching by full-catalog `matchAll`, recipe tag, crafting-book category, output item, and optional output NBT, with explicit integer priority for overlap resolution, plus the same optional addon-defined catalog metadata used by exact restricted recipe definitions.
+  Selector-style recipe restriction rule matching by full-catalog `matchAll`, recipe namespace, recipe tag, crafting-book category, output item, output item tag, and optional output NBT, with explicit integer priority for overlap resolution, plus the same optional addon-defined catalog metadata used by exact restricted recipe definitions.
 
 - `src/main/java/com/whatxe/xlib/ability/RecipePermissionApi.java`
-  Source-tracked recipe permissions, metadata-driven lookup helpers for restricted recipe families/groups/pages/tags, exact+rule restriction resolution with matched-rule reporting and explicit rule priority, reload/mutation-time resolved caches for selector-matched recipe metadata, advancement-backed auto-unlock sync, datapack reload support, recipe book sync, result-slot enforcement, online-player resync helpers for runtime restrict/unrestrict changes, and metadata-preserving permission grants so existing recipe hints/visibility flags are not overwritten by command/API access flips.
+  Source-tracked recipe permissions, metadata-driven lookup helpers for restricted recipe families/groups/pages/tags, exact+rule restriction resolution with matched-rule reporting and explicit rule priority, reload/mutation-time resolved caches for selector-matched recipe metadata, namespace and output-tag selector indexes, advancement-backed auto-unlock sync, datapack reload support, recipe book sync, result-slot enforcement, online-player resync helpers for runtime restrict/unrestrict changes, and metadata-preserving permission grants so existing recipe hints/visibility flags are not overwritten by command/API access flips.
 
 - `src/main/java/com/whatxe/xlib/api/event/XLibRecipePermissionEvent.java`
   Public permission-change event emitted when a player's recipe sources change.
@@ -598,16 +641,16 @@ Use `README.md` for the short project overview. Use `docs/XLIB_USAGE_GUIDE.md` a
 ## Event Hooks
 
 - `src/main/java/com/whatxe/xlib/event/AbilityGameplayHooks.java`
-  Hurt/hit/kill/jump/block-break/armor-change events. Also calls the progression kill hook.
+  Hurt/hit/kill/jump/block-break/armor-change events. Applies incoming/outgoing damage modifier profiles, dispatches tracked-value rules, and also calls the progression kill hook.
 
 - `src/main/java/com/whatxe/xlib/event/AbilityItemHooks.java`
-  Inventory-based dynamic grants, unlock items, resource items, eat hooks, progression consume rules, artifact consume-unlock handling, reactive item-consume dispatch, active artifact bundle sync, and managed-source pruning. It also syncs mode/context-projected state policies and state flags, and preserves active progression node reward sources plus artifact unlock sources during normal dynamic-source sync so long-lived rewards are not accidentally pruned on later ticks.
+  Inventory-based dynamic grants, unlock items, resource items, eat hooks, tracked-value food-intake conversion, tracked-value rule dispatch, progression consume rules, artifact consume-unlock handling, reactive item-consume dispatch, active artifact bundle sync, and managed-source pruning. It also syncs mode/context-projected state policies and state flags, and preserves active progression node reward sources plus artifact unlock sources during normal dynamic-source sync so long-lived rewards are not accidentally pruned on later ticks.
 
 - `src/main/java/com/whatxe/xlib/event/GrantedItemHooks.java`
   Toss prevention, death-drop stripping for undroppable managed items, and stacked-on-other cancellation for `blockExternalStorage()` managed items.
 
 - `src/main/java/com/whatxe/xlib/event/ModPlayerEvents.java`
-  Login sync, death clone handling, tick pipeline, crafting-guard install, granted-item storage-guard install, advancement-driven recipe resync, and progression sync on login/container open.
+  Login sync, death clone handling, tick pipeline, tracked-value ticking, tracked-value survival replacement, crafting-guard install, granted-item storage-guard install, advancement-driven recipe resync, and progression sync on login/container open.
 
 ## Menu Access / Catalog
 

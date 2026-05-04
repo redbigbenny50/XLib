@@ -19,9 +19,12 @@ XLib's repository license is `All Rights Reserved`. This documentation describes
 5. [Grants, Items, and Recipes](wiki/Grants-Items-and-Recipes.md)
 6. [Progression](wiki/Progression.md)
 7. [Entity and Form Systems](wiki/Entity-and-Form-Systems.md)
-8. [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md)
-9. [Declarative JSON Reference](wiki/Declarative-JSON-Reference.md)
-10. [Progression JSON Reference](wiki/Progression-JSON-Reference.md)
+8. [Tracked Values and Survival](wiki/Tracked-Values-and-Survival.md)
+9. [Capability Policies and Restrictions](wiki/Capability-Policies-and-Restrictions.md)
+10. [Synthetic Classifications and Damage](wiki/Synthetic-Classifications-and-Damage.md)
+11. [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md)
+12. [Declarative JSON Reference](wiki/Declarative-JSON-Reference.md)
+13. [Progression JSON Reference](wiki/Progression-JSON-Reference.md)
 
 ## What XLib Covers
 
@@ -44,17 +47,20 @@ XLib is a library mod for:
 - backend-agnostic runtime cue hooks for animation/effect adapters, including activation, charge, release, hit-confirm, interrupt, and state-transition cues
 - custom combat marks/debuffs plus reusable targeting/hit-resolution helpers
 - mutable player damage events, recent-hit reaction state, and high-level combat action helpers
+- source-tracked player damage modifier profiles plus datapack-authored damage-source vulnerability/resistance/immunity content
 - source-tracked ability, passive, item, and recipe grants
 - managed granted items with storage policy enforcement
 - exact/fractional resources, exact and selector-based recipe restrictions, and JEI/EMI integration
+- tracked values, trigger-driven tracked-value rules, and authored food-bar replacement or survival behavior
 - an optional progression module for point, counter, track, and node systems
 - branching progression specialization with choice groups, node or track locks, and identity-gated follow-up paths
-- source-tracked capability policies for restricting player interaction, inventory, movement, menu, crafting, equipment, and held-item access
+- source-tracked capability policies for restricting player interaction, inventory, movement, menu, crafting, equipment, held-item, pickup, hotbar, and workstation access
+- per-entity synthetic classification/impersonation state so systems can treat a target as extra entity types or tag groups at runtime
 - named entity bindings between living entities with typed semantics, stacking policies, timed duration, and break conditions
 - lifecycle stages for players with authored timer/trigger transitions and projected state flags, bundles, identities, forms, and policies
 - visual form definitions for model/cue/HUD adapter backends with primary-form resolution and source tracking
 - body transitions (possess, project, hatch, emerge, return) with temporary capability policy and visual form overrides
-- bounded datapack JSON authoring for many shipped systems, including lifecycle stages, capability policies, and visual forms
+- bounded datapack JSON authoring for many shipped systems, including lifecycle stages, capability policies, visual forms, tracked values, tracked value rules, and damage modifier profiles
 - content-reference and content-definition inspection through `/xlib debug content ...`
 
 ## Quick Mental Model
@@ -91,6 +97,11 @@ XLib is already a broad framework mod, not just a starter slice.
 - `XLibCueAdapterApi` and `XLibCueRouteProfileApi` now let addons register optional backend adapters and route cues separately to player-body animation, model animation, or effect-playback capability surfaces.
 - `com.whatxe.xlib.integration.blib` is one optional bridge on top of that cue system. If BLib is absent, only the BLib `AzCommand` bridge is unavailable; the neutral cue APIs and route profiles still function.
 - XLib now also ships data-driven authoring for the newer entity/form systems through `DataDrivenLifecycleStageApi`, `DataDrivenCapabilityPolicyApi`, and `DataDrivenVisualFormApi`, so bounded state/config content can move into datapacks instead of forcing every addon to register those definitions in Java.
+- `TrackedValueApi`, `DataDrivenTrackedValueApi`, and `DataDrivenTrackedValueRuleApi` now add a general tracked-stat layer with authored runtime rules, requirement hooks, debug inspection, and optional food-bar replacement plus survival behavior.
+- `EntityClassificationApi` now adds source-tracked synthetic entity-type and synthetic tag state, merged real-plus-synthetic selector matching, admin commands, and compat-facing change hooks for systems that need to treat one entity as another runtime archetype.
+- `DamageModifierProfileApi` now adds source-tracked incoming/outgoing damage scaling by exact damage type or damage-type tag, and `DataDrivenDamageModifierProfileApi` makes those profiles authorable under datapacks.
+- Capability policy enforcement is now finer grained: hotbar selection changes, exact item filters, armor allow/block filters, block/entity interaction filters, riding targets, pickup filters, and workstation-specific access all resolve through the unified policy state.
+- Recipe restriction rules now support broader cached selectors such as `match_all`, recipe namespaces, output items, and output item tags, with inspectable matched-rule metadata and explicit priorities.
 - `/xlib debug content ...` is now wired at runtime, so authored JSON surfaces can be listed and inspected without reading raw datapack files or internal reload caches.
 - `/xlib` admin and debug commands, JUnit coverage, and runtime GameTests are already part of the repo.
 
@@ -131,6 +142,11 @@ Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you w
 - Progression requirements can now compose branches with `all(...)`, `any(...)`, `trackCompleted(...)`, and `anyNodeUnlocked(...)`.
 - Modes can now enforce strict ordered cycle steps and apply built-in upkeep like hp drain or per-tick resource changes.
 - Recipe restrictions now support exact ids, selectors, advancement-backed unlocks, cached rule resolution, and live viewer sync.
+- Tracked values can now drive replacement hunger-style bars, consume food into custom values, and run custom heal/starvation thresholds while vanilla hunger is suppressed.
+- Synthetic classifications now back merged real-plus-synthetic selector checks in requirements, tracked-value rules, kill rules, interaction restrictions, and admin inspection.
+- Damage modifier profiles now have both Java registration and datapack authoring paths, plus content inspection through `/xlib debug content damage_modifier_profiles ...`.
+- Capability policies now cover hotbar selection changes, exact item filters, armor allow/block filters, interaction target filters, pickup filters, and workstation-specific access in addition to the older broad yes/no gates.
+- Recipe restriction selectors now include full-catalog matches, recipe namespaces, output items, output item tags, recipe tags, and crafting-book categories.
 - Granted items now have explicit external-storage policy control instead of only best-effort cleanup.
 - The built-in docs are now split into topic pages so the project can read like a library wiki on GitHub and CurseForge.
 
@@ -140,6 +156,9 @@ Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you w
 - Read [System Overview and Status](wiki/System-Overview-and-Status.md) next when you want the shipped architecture and whole-library status before drilling into one API surface.
 - Read [Abilities and Loadouts](wiki/Abilities-and-Loadouts.md) and [Modes and Combos](wiki/Modes-and-Combos.md) next if you are building a combat addon.
 - Read [Grants, Items, and Recipes](wiki/Grants-Items-and-Recipes.md) when your addon needs source-tracked content unlocks or managed items.
+- Read [Tracked Values and Survival](wiki/Tracked-Values-and-Survival.md) when your addon needs evolution-style stats, custom survival resources, or food-bar replacement.
+- Read [Capability Policies and Restrictions](wiki/Capability-Policies-and-Restrictions.md) when your addon needs runtime lockouts or interaction restrictions.
+- Read [Synthetic Classifications and Damage](wiki/Synthetic-Classifications-and-Damage.md) when your addon needs "counts as" identity or reusable damage vulnerability/resistance profiles.
 - Read [Progression](wiki/Progression.md) only if you want trees, points, counters, or node rewards.
 - Keep [Events, Commands, and Testing](wiki/Events-Commands-and-Testing.md) open while validating your addon or building admin flows.
 - Use [Declarative JSON Reference](wiki/Declarative-JSON-Reference.md) and [Progression JSON Reference](wiki/Progression-JSON-Reference.md) when your addon prefers datapack-defined bounded content over Java registration.
@@ -156,6 +175,8 @@ Read [System Overview and Status](wiki/System-Overview-and-Status.md) when you w
 - XLib now ships optional cue-adapter and routing APIs, but it still does not bundle a concrete third-party animation backend implementation in-tree.
 - Ability-attributed kill progression still depends on addon code recording the hit through `AbilityCombatTracker`.
 - `blockExternalStorage()` is strong for player-driven inventory paths, but it is not a universal hook for every possible external inventory system another mod might add.
+- Synthetic classifications now have a generic compat-hook surface, but XLib still does not ship mod-specific targeting bridges for every external mob or AI mod.
+- Tracked-value survival replacement now covers replacement food levels, food intake conversion, and custom heal/starvation thresholds, but the authored HUD side is still mostly the food-bar replacement lane rather than a broader arbitrary survival-HUD layout system.
 - XLib no longer includes bundled IDE/demo gameplay fixtures; addon authors should register their own sample content when they want manual validation content during development.
 
 ## Packaging Note
